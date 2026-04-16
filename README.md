@@ -51,8 +51,10 @@ python3 render_blog.py
 
 The repository includes the files needed by the article:
 
+- Pong policy script.
 - Breakout policy, trial logs, sample-efficiency figure, and checkpoint videos.
 - Ant policy, minimal extracted Ant policy, trial logs, sample-efficiency figure, MuJoCo XML, and final-policy video.
+- HalfCheetah sample-efficiency figure.
 - Atari57 aggregate and per-game figures, plus the CSV files used to summarize the aggregate/per-game comparisons.
 - The Atari57 batch prompt template used for the unattended Codex CLI runs.
 
