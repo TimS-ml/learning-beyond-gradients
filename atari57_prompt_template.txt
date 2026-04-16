@@ -1,0 +1,117 @@
+你是一个务实、严谨的 coding agent。现在请只针对 EnvPool 的 {{ENV_ID}}，在 {{OBS_MODE}} 设定下，自己设计并持续迭代一个手写 heuristic policy，把分数尽量推到最高，同时完整记录 sample efficiency。整个过程只在当前机器本地跑，不要联网查资料，不要参考任何现成解法。
+
+任务配置：
+
+ENV_ID = "{{ENV_ID}}"
+OBS_MODE = "{{OBS_MODE}}"
+REPEAT_INDEX = {{REPEAT_INDEX}}
+KNOWN_BEST_SCORE = {{KNOWN_BEST_SCORE}}
+ENV_ROOT_DIR = "/tmp/envpool_heuristic/{{ENV_ID}}"
+ROOT_DIR = "/tmp/envpool_heuristic/{{ENV_ID}}/{{OBS_MODE}}"
+RUN_DIR = "/tmp/envpool_heuristic/{{ENV_ID}}/{{OBS_MODE}}/run_{YYYYMMDD_HHMMSS}_{PID}"
+
+ENVPOOL_VERSION = "1.1.1"
+FRAME_BUDGET = 20000000
+
+请先创建 ENV_ROOT_DIR、ROOT_DIR 和 RUN_DIR。本次运行产生的所有脚本、日志、图、说明文档都写到 RUN_DIR 下面，不要写进任何 repo 工作区。
+
+开始实验前，不要创建 venv，也不要重装 envpool。直接在当前 Python 环境里做一次最小 import 验证，确认 `envpool.__version__ == "1.1.1"`。把 Python 版本、envpool 版本、envpool 包文件位置、以及一次最小 import 验证结果写进 RUN_DIR/README.md。如果当前环境不是 `envpool==1.1.1`，就直接报错停止，不要自行切版本。
+
+请把 REPEAT_INDEX 用作本次搜索的初始随机种子偏移、trial 命名后缀或其它去相关机制，保证 3 次 repeat 不是机械地跑成完全同一条搜索轨迹。
+
+不同任务会落在不同的 ROOT_DIR / RUN_DIR 下面，目录天然隔离，不需要为了避免路径冲突而串行化；如果你认为有帮助，可以放心在本任务内部并行执行互不覆盖的探索、评估或分析步骤。
+
+参考分数规则：
+
+这个 prompt 已经直接给出了 `KNOWN_BEST_SCORE`。它只用于参考和结果对比，不用于决定何时停止。
+
+硬约束：
+
+1. 严格把环境当黑盒。不要阅读 envpool 仓库里该环境/wrapper 的实现源码、测试代码、ROM/XML 细节，或者任何会泄漏环境内部实现的文件。只能使用 envpool 对外 API 暴露的信息：make/reset/step/render、action_space、observation_space、obs、reward、done、info 的公开字段。
+
+2. 如果 OBS_MODE = "native_obs"：
+   - policy 只能基于 reset/step 返回的原生 obs，以及 policy 自己维护的内部状态来决策。
+   - 不允许读取 info["ram"] 或任何 RAM 内容。
+   - 不要把 render() 当成额外输入喂给 policy。
+
+3. 如果 OBS_MODE = "ram"：
+   - policy 可以读取 info["ram"] 和 policy 自己维护的内部状态。
+   - 仍然不要调用未公开的 simulator state 或源码内部实现。
+
+4. 如果 ENV_ID 是 Atari 环境，必须用下面这段环境初始化模板，不要擅自改分辨率、frame stack、frame skip、reward clipping 或 sticky action：
+
+```python
+import envpool
+
+env = envpool.make_gym(
+    ENV_ID,
+    num_envs=1,
+    batch_size=1,
+    seed=seed,
+    img_height=210,
+    img_width=160,
+    stack_num=1,
+    gray_scale=False,
+    frame_skip=1,
+    noop_max=1,
+    use_fire_reset=True,
+    episodic_life=False,
+    reward_clip=False,
+    repeat_action_probability=0.0,
+    full_action_space=False,
+)
+```
+
+5. 如果 ENV_ID 不是 Atari，就直接使用该环境默认 native obs 初始化；除非环境 API 明确要求，否则不要额外包 wrapper。
+
+6. 不限定你怎么迭代、怎么搜索、怎么组织 heuristic。你可以自己决定用目标检测、轨迹预测、状态机、参数搜索、短 horizon planning、controller 或任何别的纯手写方法；唯一要求是不要训练神经网络，不要读环境源码，不要读隐藏状态。
+
+7. 不要停下来讨论方案，不要请求确认，不要输出中途进展汇报。
+
+8. 每当你刷新当前 run 的 `best_score` 时，不要立刻停止。先进入一次“代码简化阶段”：
+   - 目标是在不降低当前 `best_score` 的前提下，把 heuristic 尽可能压缩成更短、更直接、更容易复现的实现。
+   - 优先删除冗余搜索脚本、重复分支、无效状态、过度参数化和对最终分数没有贡献的辅助逻辑。
+   - 简化后必须重新评估，确认 `best_score` 没有下降；如果下降，就回退到上一个不掉分的版本。
+   - 最终留下的 `policy.py` 应该是当前 best score 对应的尽可能简单版本，而不是搜索过程中最臃肿的版本。
+
+停止规则：
+
+- 对 Atari 任务，这里的 frame budget 定义为 `FRAME_BUDGET = 20000000`。由于固定使用 `frame_skip=1`，所以这里可以把 `cumulative_env_steps` 直接当成累计 frame 数。
+- 在 `cumulative_env_steps < FRAME_BUDGET` 时，不要因为分数高低、短期平台期、暂时找不到更好的策略、或者已经超过/没超过 KNOWN_BEST_SCORE 就停止；必须持续尝试新的 heuristic、结构、搜索或评估。
+- 只有当 `cumulative_env_steps >= FRAME_BUDGET` 时，才允许停止并输出最终总结。
+- 如果当前环境不是 Atari，也沿用同一个 `FRAME_BUDGET = 20000000`，把它解释为累计 env steps 上限。
+
+输出文件要求：
+
+1. policy.py
+   保存当前最好的 heuristic，而且它应该已经经过“简化阶段”，是在不降低 best score 的前提下尽可能短、尽可能直接的版本。接口尽量简洁，比如：
+
+```python
+class Policy:
+    def reset(self):
+        ...
+    def act(self, obs: np.ndarray, info: dict | None = None):
+        ...
+```
+
+2. trials.jsonl
+   每一次 trial 追加一行，至少包含：
+   trial_index, timestamp, env_id, obs_mode, trial_name, episodes_finished, env_steps, score_mean, score_min, score_max, cumulative_env_steps, cumulative_episodes, policy_config, notes
+
+3. summary.csv
+   从 trials.jsonl 汇总出来。
+
+4. sample_efficiency.png
+   根据 summary.csv 画两张子图：
+   - x = cumulative_env_steps，y = score_mean 和 running_best
+   - x = cumulative_episodes，y = score_mean 和 running_best
+
+5. README.md
+   最后写清楚：当前最好分数、KNOWN_BEST_SCORE、REPEAT_INDEX、对应 trial、累计 env steps / episodes、FRAME_BUDGET、复现命令、最终保留下来的简化版 policy 逻辑、主要失败方向、以及为什么你认为已经满足停止规则。
+
+sample 统计口径：
+
+- 所有实际 step 过环境的 trial / probe / debug rollout 都要计入 cumulative_env_steps 和 cumulative_episodes，不能偷偷漏掉。
+- score 以 episode return 为准；如果一个 trial 跑多个 episodes，就记 mean / min / max。
+
+现在直接开始执行。先创建 RUN_DIR，探测 ENV_ID 的 action_space、observation_space、reset obs shape、step 返回结构，然后自己决定怎么迭代。中途不要问我，也不要汇报进展，直到满足停止规则后再输出最终总结。

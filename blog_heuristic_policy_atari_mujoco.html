@@ -1,0 +1,1154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Make Heuristics Great Again: Letting Codex Build Heuristic Systems from Scratch</title>
+  <style>
+:root {
+  color-scheme: light;
+  --bg: #f8fafc;
+  --paper: #ffffff;
+  --ink: #111827;
+  --muted: #4b5563;
+  --line: #d9e2ec;
+  --accent: #0f766e;
+  --accent-2: #b45309;
+  --code-bg: #0f172a;
+  --code-ink: #e5e7eb;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: ui-serif, Georgia, Cambria, "Times New Roman", serif;
+  font-size: 18px;
+  line-height: 1.72;
+}
+.page {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 56px 28px 96px;
+  background: var(--paper);
+  min-height: 100vh;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.08);
+}
+.lang-switch-wrap {
+  position: sticky;
+  top: 12px;
+  z-index: 20;
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: none;
+  margin: -30px 0 22px;
+}
+.lang-switch {
+  pointer-events: auto;
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(8px);
+}
+.lang-switch button {
+  min-width: 72px;
+  border: 0;
+  border-radius: 6px;
+  padding: 7px 12px;
+  background: transparent;
+  color: var(--muted);
+  font: 700 14px/1 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  cursor: pointer;
+}
+.lang-switch button.active {
+  background: var(--ink);
+  color: #fff;
+}
+.lang-pane[hidden] { display: none !important; }
+h1, h2, h3 {
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.18;
+  letter-spacing: 0;
+}
+h1 { margin: 0 0 28px; font-size: 46px; max-width: 860px; }
+h2 { margin: 56px 0 18px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 30px; }
+h3 { margin: 34px 0 12px; font-size: 22px; }
+p { margin: 18px 0; }
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+ul, ol { padding-left: 1.45em; }
+li { margin: 8px 0; }
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.88em;
+  background: #edf2f7;
+  padding: 0.1em 0.28em;
+  border-radius: 4px;
+}
+pre { overflow-x: auto; margin: 22px 0; padding: 18px 20px; border-radius: 8px; background: var(--code-bg); color: var(--code-ink); line-height: 1.48; }
+pre code { background: transparent; color: inherit; padding: 0; border-radius: 0; font-size: 0.88em; }
+img, video { display: block; max-width: 100%; height: auto; margin: 26px auto; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+video { background: #0b1020; }
+details { margin: 24px 0 30px; border: 1px solid var(--line); border-radius: 8px; background: #fbfdff; overflow: hidden; }
+summary { cursor: pointer; padding: 14px 18px; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-weight: 700; color: var(--accent-2); background: #fff7ed; border-bottom: 1px solid var(--line); }
+details > *:not(summary) { margin-left: 18px; margin-right: 18px; }
+details pre { margin: 18px; max-height: 70vh; }
+blockquote { margin: 24px 0; padding: 2px 20px; border-left: 4px solid var(--accent); color: var(--muted); background: #f0fdfa; }
+table { border-collapse: collapse; width: 100%; margin: 24px 0; font-size: 0.94em; }
+th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; }
+th { background: #f1f5f9; }
+@media (max-width: 720px) {
+  body { font-size: 16px; }
+  .page { padding: 32px 18px 64px; box-shadow: none; }
+  .lang-switch-wrap { margin: 0 0 18px; top: 0; }
+  .lang-switch button { min-width: 66px; padding: 7px 10px; }
+  h1 { font-size: 34px; }
+  h2 { font-size: 24px; }
+}
+
+  
+  
+  
+  
+  
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="lang-switch-wrap" aria-label="Language switcher">
+      <div class="lang-switch">
+        <button type="button" id="lang-en" class="active" aria-pressed="true">English</button>
+        <button type="button" id="lang-zh" aria-pressed="false">中文</button>
+      </div>
+    </div>
+    <article id="article-en" class="lang-pane" lang="en">
+<h1>Make Heuristics Great Again: Letting Codex Build Heuristic Systems from Scratch</h1>
+<blockquote>
+<p>Jiayi Weng</p>
+</blockquote>
+<p>I recently ran a set of experiments in EnvPool. I did not train neural networks, and I did not run reinforcement learning. I just gave the environments to Codex and let it write policies, run evaluations, read logs, edit code, and keep pushing Atari and MuJoCo scores higher. The results were more extreme than I expected: Pong reached <code>21</code>; Breakout reached <code>864</code> with both RAM input and pure image input; in MuJoCo, Ant-v5 reached <code>6146</code>, and HalfCheetah-v5 reached <code>12041</code>.</p>
+<p>This is not meant to be a clickbait claim that "a few if-else statements can beat any reinforcement-learning policy." The part I care about is the cost structure. In the past, heuristic systems were hard to maintain. You had to write detectors, infer action meanings, handle frame skip and serving, maintain conditional branches, run parameter sweeps, and keep track of where every score came from. It is hard for a human to keep all of that in their head over time, so heuristic policies easily turn into one-off scripts.</p>
+<p>Codex changed how I feel about that tradeoff. It does not just write a <code>policy.py</code> and stop. It keeps doing the things you would do when maintaining a small software project: write tests, run batches of experiments, watch videos, change parameters, add logs, draw sample-efficiency curves, delete bad directions, and freeze good configurations. Heuristics used to feel like an old-fashioned hack. Now I think they may be exactly the kind of thing coding agents are good at maintaining.</p>
+<p>I will first describe how the experiments were run, then go through three examples in order. Breakout comes first because it is the most visually intuitive: you can see an Atari policy being tuned step by step. Ant comes next because in continuous control the phenomenon looks more like a reflex system growing on its own. Finally I discuss Atari57, because although it is less clean as a single-task story, it better shows what the distribution looks like when this method runs in a batch without human intervention.</p>
+<h2>How the Experiments Ran</h2>
+<p>For model configuration, these experiments mainly used Codex 5.4 with <code>xhigh</code>. I did not run a systematic ablation over model size or reasoning effort here, so this article is about what happened under that configuration, not a comparison across models.</p>
+<p>The starting point was actually an engineering problem: I wanted to validate EnvPool environments, and I needed policies that were much stronger than random policies but did not require training. Random policies are too weak. In many environments, an entire episode never reaches the part of the task that gives meaningful reward, so when something fails all you see is a timeout or a score of 0. It is hard to tell whether the environment is wrong, the wrapper is wrong, or the policy simply never reached an informative state. Training a neural network for every environment is too heavy too. Versions, dependencies, training budgets, and checkpoints would all become burdens inside the test system itself.</p>
+<p>At first I tried the most direct version: ask Codex to "write a policy that solves Breakout," let it run one episode, look at the score, and keep editing. That worked poorly because a low score was not informative. It did not know whether the action semantics were wrong, the state reader was wrong, the evaluation setup was wrong, or the policy structure itself was wrong. Later I changed the task so that Codex first had to maintain a complete loop: write detectors, then write the policy, then run full episodes, then write the experiment ledger, and only then freeze <code>policy.py</code>.</p>
+<p>That loop was first shaped on Pong and Breakout. The earliest detectors only checked action space and observation shape. Later they became action-semantics probes, pixel-threshold detectors, RAM-byte-to-image-position correlation probes, short video replays, and dumps of the last few dozen trajectory steps. Only after that did <code>trials.jsonl</code> / <code>summary.csv</code> become part of the process, with every change recording cumulative environment steps, score, configuration, and failure reason. The version that worked best was: first probe observable state, then propose one small change, then recheck a full episode, and only promote the change after it passes. Every time a new best score appeared, Codex also did a simplification pass to delete temporary scripts and dead branches that grew during search.</p>
+<p>The most time-consuming part of developing this loop was making clear what the policy could see, what each action meant, and where a score came from. In Pong, the slow part was thresholding and aligning RAM coordinates. In Breakout, it was telling apart "can catch the ball" from "can keep clearing bricks." In Ant, it was separating real environment steps, MuJoCo model-planning steps, and experiment-ledger steps. The process felt like turning a black box that only returned a score into a debuggable software system.</p>
+<p>The final loop was roughly:</p>
+<ol>
+<li>Write an evaluation harness and confirm observations, actions, rewards, termination, random seeds, and frame-skip settings.</li>
+<li>Append every experiment to <code>trials.jsonl</code>, then generate <code>summary.csv</code> with <code>env_steps</code>, score, configuration, and notes.</li>
+<li>Write probe scripts to find controllable state variables, such as RAM bytes, RGB connected components, MuJoCo joint order, root velocity, and contact patterns.</li>
+<li>Change one direction at a time: detector, target point, stuck handling, planner objective, candidate action library, or short-horizon proxy objective.</li>
+<li>Promote a configuration to the default only after a full-episode recheck passes.</li>
+</ol>
+<p>This may sound like ordinary experiment hygiene, but it mattered a lot for Codex. Without an experiment ledger, after dozens of rounds it easily mixed up "better for 300 steps" with "better for a full episode," and it also mixed up real environment steps with internal rollouts inside a MuJoCo model. With a ledger, it behaved much more like a software maintainer: every change had a source, every failed direction had a note, and the next round was less likely to repeat the same mistake.</p>
+<h2>Breakout: From Just Catching the Ball to the Theoretical Maximum Score of 864</h2>
+<p>Breakout looks like a geometry problem at first: where the ball is, where the paddle is, and where the ball will land after bouncing off walls. The annoying part comes later: a policy can keep catching the ball forever and still stop breaking new bricks.</p>
+<p>Codex did not rush to write the final policy in the first round. It first confirmed the action space and observation shape, then found the paddle, ball, and brick colors in RGB frames, and then used image labels to scan the 128 RAM bytes. The early experiment ledger looked roughly like this:</p>
+<pre><code class="language-text">trial_name                 score   cumulative_env_steps   note
+shape_action_probe          -      32                     inspect obs/info/action
+ram_byte_corr_probe_v1      -      5,032                  correlate RAM bytes
+ram_fit_action_probe_v2     -      9,532                  action 2=right, 3=left
+baseline_v0                99      16,303                 initial RAM intercept
+tunnel0_v1                387      43,303                 no tunnel offset
+</code></pre>
+<p><code>387</code> was the first local high score that could easily fool you. The policy could catch the ball reliably, but it was just feeding the ball into a cycle: it would not die, and it would not clear new bricks. If a human were hand-writing the heuristic, it would be easy to think the problem was still "the intercept is not accurate enough" and keep tuning that. Codex figured out from the video and the last few dozen trajectory steps that the real problem was the lack of disturbance in the ball path.</p>
+<video controls src="heuristic_breakout_score387_tunnel0_render210x160.mp4" width="360"></video>
+
+<p>In the <code>387</code> video, the problem is visible: the ball and paddle have settled into a stable loop, but brick progress has stopped.</p>
+<details>
+<summary>Reproduce score `387`</summary>
+
+The command below assumes the current directory is this article's artifact directory, meaning the directory containing `heuristic_breakout.py`. It writes the temporary experiment ledger to `/tmp`, so it does not pollute the ledger used in the article.
+
+
+<pre><code class="language-bash">rm -f /tmp/repro_breakout_387.jsonl /tmp/repro_breakout_387.csv
+python heuristic_breakout.py \
+  --policy ram \
+  --episodes 1 \
+  --seed 0 \
+  --max-steps 27000 \
+  --deadband 3 \
+  --chase-lead-steps 6 \
+  --tunnel-offset 0 \
+  --launch-offset 24 \
+  --fast-ball-min-vy 1000000000 \
+  --stuck-trigger-steps 1000000000 \
+  --stuck-switch-steps 0 \
+  --stuck-offset 0 \
+  --stuck-release-horizon-steps 0 \
+  --brick-balance-bias-min-score 1000000000 \
+  --late-game-paddle-lag-px 0 \
+  --trial-name repro_breakout_387 \
+  --log-path /tmp/repro_breakout_387.jsonl \
+  --summary-path /tmp/repro_breakout_387.csv
+</code></pre>
+
+
+The expected output should include `score=387.0` and `mean=387.000`.
+
+</details>
+
+<p>The first key mechanism it added was a loop breaker: if there had been no reward for a long time, add a periodic offset to the predicted landing point, so the paddle knocks the ball out of the local cycle. That change pushed the score from <code>387</code> to <code>507</code>.</p>
+<pre><code class="language-python">if steps_since_reward &gt;= stuck_trigger_steps:
+    phase = stuck_offset_index % 4
+    if phase == 0:
+        offset = +stuck_offset_px
+    elif phase == 1:
+        offset = -stuck_offset_px
+    elif phase == 2:
+        offset = +0.5 * stuck_offset_px
+    else:
+        offset = -0.5 * stuck_offset_px
+else:
+    offset = 0.0
+</code></pre>
+<video controls src="heuristic_breakout_score507_stuckbreaker_render210x160.mp4" width="360"></video>
+
+<p>The important part of <code>507</code> is not catch accuracy. It is ball-path control: the policy starts deliberately kicking the ball out of local loops.</p>
+<details>
+<summary>Reproduce score `507`</summary>
+
+
+<pre><code class="language-bash">rm -f /tmp/repro_breakout_507.jsonl /tmp/repro_breakout_507.csv
+python heuristic_breakout.py \
+  --policy ram \
+  --episodes 1 \
+  --seed 0 \
+  --max-steps 27000 \
+  --deadband 3 \
+  --chase-lead-steps 6 \
+  --tunnel-offset 0 \
+  --launch-offset 24 \
+  --fast-ball-min-vy 1000000000 \
+  --stuck-trigger-steps 1024 \
+  --stuck-switch-steps 256 \
+  --stuck-offset 12 \
+  --stuck-release-horizon-steps 0 \
+  --brick-balance-bias-min-score 1000000000 \
+  --late-game-paddle-lag-px 0 \
+  --trial-name repro_breakout_507 \
+  --log-path /tmp/repro_breakout_507.jsonl \
+  --summary-path /tmp/repro_breakout_507.csv
+</code></pre>
+
+
+The expected output should include `score=507.0` and `mean=507.000`.
+
+</details>
+
+<p>Then another failure mode appeared. For fast low balls, chasing the normal intercept made the paddle overreact to the lookahead and drift away. Codex added <code>fast_low_ball_lead_steps=3</code>, and the score jumped directly from <code>507</code> to <code>839</code>.</p>
+<pre><code class="language-python">if vy &gt; 0.1 and ball_y &lt;= paddle_y:
+    steps_to_paddle = max((paddle_y - ball_y) / vy, 0.0)
+    intercept_x = reflect_position(ball_x + vx * steps_to_paddle)
+    target_x = intercept_x + stuck_offset
+elif vy &gt;= fast_ball_min_vy:
+    target_x = ball_x + fast_low_ball_lead_steps * vx
+else:
+    target_x = ball_x + chase_lead_steps * vx
+</code></pre>
+<video controls src="heuristic_breakout_score839_fastlead_render210x160.mp4" width="360"></video>
+
+<p>The <code>839</code> video shows another change: low fast balls no longer drag the paddle off course, and the policy finally enters the stage where it can clear the back half of the wall.</p>
+<details>
+<summary>Reproduce score `839`</summary>
+
+
+<pre><code class="language-bash">rm -f /tmp/repro_breakout_839.jsonl /tmp/repro_breakout_839.csv
+python heuristic_breakout.py \
+  --policy ram \
+  --episodes 1 \
+  --seed 0 \
+  --max-steps 27000 \
+  --deadband 3 \
+  --chase-lead-steps 6 \
+  --tunnel-offset 0 \
+  --launch-offset 24 \
+  --fast-ball-min-vy 3 \
+  --fast-low-ball-lead-steps 3 \
+  --stuck-trigger-steps 1024 \
+  --stuck-switch-steps 256 \
+  --stuck-offset 12 \
+  --stuck-release-horizon-steps 0 \
+  --brick-balance-bias-min-score 1000000000 \
+  --late-game-paddle-lag-px 0 \
+  --trial-name repro_breakout_839 \
+  --log-path /tmp/repro_breakout_839.jsonl \
+  --summary-path /tmp/repro_breakout_839.csv
+</code></pre>
+
+
+The expected output should include `score=839.0` and `mean=839.000`.
+
+</details>
+
+<p>The move from <code>839</code> to <code>864</code> was the part that most looked like maintaining a complicated heuristic system. Codex tried deadbands, serve offsets, stuck offsets, brick-balance bias, and lookahead steps. Many directions did not help. The useful change was a late-stage condition: after the first wall has been cleared, the stuck offset should only apply while the ball is still far from the paddle; as the ball gets close, the offset should decay away, otherwise the final few bricks cause the policy to steer the paddle off course. It also added a tiny paddle-drift compensation for the one-step delay between action and paddle position.</p>
+<pre><code class="language-python">if score &gt;= 432 and stuck_release_horizon_steps &gt; 0:
+    release_ratio = clip(steps_to_paddle / stuck_release_horizon_steps, 0.0, 1.0)
+    offset *= release_ratio
+
+if score &gt;= 432 and ball_y &gt;= 170 and last_action == RIGHT:
+    control_paddle_x = paddle_x + 2.0
+elif score &gt;= 432 and ball_y &gt;= 170 and last_action == LEFT:
+    control_paddle_x = paddle_x - 2.0
+</code></pre>
+<video controls src="heuristic_breakout_ci3985ae2_score864_render210x160.mp4" width="360"></video>
+
+<details>
+<summary>Reproduce score `864`</summary>
+
+
+<pre><code class="language-bash">rm -f /tmp/repro_breakout_864.jsonl /tmp/repro_breakout_864.csv
+python heuristic_breakout.py \
+  --policy ram \
+  --episodes 1 \
+  --seed 0 \
+  --max-steps 108000 \
+  --deadband 3 \
+  --chase-lead-steps 6 \
+  --tunnel-offset 0 \
+  --launch-offset 24 \
+  --fast-ball-min-vy 3 \
+  --fast-low-ball-lead-steps 3 \
+  --stuck-trigger-steps 1024 \
+  --stuck-switch-steps 256 \
+  --stuck-offset 12 \
+  --stuck-release-horizon-steps 8 \
+  --brick-balance-deadzone 0.01 \
+  --brick-balance-bias-min-score 432 \
+  --late-game-paddle-lag-px 2 \
+  --late-game-lag-ball-y 170 \
+  --trial-name repro_breakout_864 \
+  --log-path /tmp/repro_breakout_864.jsonl \
+  --summary-path /tmp/repro_breakout_864.csv
+</code></pre>
+
+
+The expected output should include `score=864.0` and `mean=864.000`.
+
+</details>
+
+<p>The final RAM default configuration verified as <code>864/864/864</code> across three episodes. More interestingly, Codex later migrated the same geometric control back to pure image input: no RAM, only RGB segmentation to find the paddle, ball, and brick balance. The pure-image version first reached <code>310</code>, then <code>428</code>, and finally reached <code>864</code> after lowering the late-stage "decay the stuck offset" threshold so it applied throughout the run. It first hit <code>864</code> after 7 policy-local episodes, corresponding to <code>14,504</code> policy-local environment steps in the figure.</p>
+<p><img alt="Breakout sample efficiency" src="heuristic_breakout_sample_efficiency.png"></p>
+<p>The full policy code is in <a href="heuristic_breakout.py"><code>heuristic_breakout.py</code></a>, and the experiment ledger is in <a href="heuristic_breakout_trials_summary.csv"><code>heuristic_breakout_trials_summary.csv</code></a>.</p>
+<p>The important point is not "pure image reaches the maximum score from scratch in <code>14.5K</code> steps." That would be inaccurate. More precisely, Codex first found geometric control, loop breaking, and late-stage offset decay in the RAM version. Once that structure stabilized, it swapped the state reader from RAM to an RGB detector. The pure-image <code>14.5K</code> is a transfer budget, not a from-scratch budget. It says something else: once a heuristic policy is written as a maintainable software structure, the input layer can be replaced, the control logic can be reused, and the result can keep being regression-tested instead of training a new system for every observation format.</p>
+<h2>Ant: Codex Introduced Gait Control and Model Predictive Planning on Its Own</h2>
+<p>If Breakout's geometry is still fairly intuitive, Ant was more surprising to me. I did not start by saying "use CPG," and I did not say "use MPC"; in fact, I still did not know what MPC was at the time. My request was just the same loop as above: write a heuristic policy, do not train a neural network, improve the score, and leave logs plus reproduction commands. Codex first read the EnvPool/Gymnasium Ant observations and rewards, confirmed the action order, root velocity, torso orientation, joint positions, and joint velocities, and then proposed its first rhythmic gait.</p>
+<p>The first version was a four-leg phase oscillator: left and right legs in opposite phase, hip and ankle joints tracking sinusoidal target angles, with actions produced by a PD controller. It was not elegant, but it was already much stronger than random. Across 5 random seeds, the mean score was <code>2291</code>.</p>
+<pre><code class="language-python">leg_phase = warp_phase(phase + LEG_PHASE, stance_duty(vx))
+stance = leg_phase &lt; pi
+
+hip_wave = HIP_BIAS + stance_or_swing_scale * (
+    HIP_AMP * sin(leg_phase)
+    + HIP_H2_AMP * sin(2 * leg_phase + HIP_H2_PHASE)
+    + HIP_H3_AMP * sin(3 * leg_phase + HIP_H3_PHASE)
+)
+
+action[0::2] = KP * (
+    HIP_SIGN * hip_wave
+    + HEADING_AXIS * (YAW_GAIN * yaw + YAW_RATE_GAIN * yaw_rate)
+    - q[0::2]
+)
+action[1::2] = KP * (ANKLE_SIGN * (ankle_wave + balance) - q[1::2])
+</code></pre>
+<p>The early iterations afterward felt a lot like tuning a real robot: add yaw feedback to reach <code>2718</code>, then tune phase speed, hip/ankle amplitudes, and yaw-rate gain to reach <code>3025</code>, then add second- and third-order harmonics to reach <code>3162</code>. Codex also tried broad CEM search, but the results did not consistently beat the current rhythmic policy, so it did not simply keep increasing the search scale. It moved to a different representation.</p>
+<p>The jump in Ant came from Codex introducing residual model predictive planning, written as MPC in the code. My understanding is: keep the rhythmic gait as a "reflex," then at every real environment step sample dozens of small residual action sequences inside a local MuJoCo model, score them, execute only the first residual action, and warm-start the remaining plan at the next step. This way, the policy does not need to plan how all 8 joints should move from scratch at every step. It starts from a stable base gait, then uses short-horizon model planning to correct that gait.</p>
+<p>You can think of MPC as "walking while thinking a short distance ahead." It is not training a policy network, and it is not computing one complete trajectory from step 0 to the end. At the current state, it uses a model to try several possible short future action sequences, chooses the one that looks best, executes only the first step, then observes the next state and tries again. For Ant, this fits well around a heuristic policy: the rhythmic gait makes the robot behave like something that can walk, while MPC makes small corrections at each step so it falls less, yaws less, and moves forward faster.</p>
+<pre><code class="language-python">base = cpg_action(phase, q, dq, roll, pitch, yaw, rates, contacts, vx)
+
+best_plan = previous_plan.copy()
+best_obj = rollout_objective(obs, best_plan)
+for _ in range(CANDIDATES - 1):
+    residuals = clip(
+        best_plan + rng.normal(0.0, MPC_SIGMA, size=(HORIZON, 8)),
+        -MPC_CLIP,
+        MPC_CLIP,
+    )
+    residuals[1:] = 0.6 * residuals[1:] + 0.4 * residuals[:-1]
+    obj = rollout_objective(obs, residuals)
+    if obj &gt; best_obj:
+        best_obj = obj
+        best_plan = residuals
+
+plan[:-1] = PLAN_DECAY * best_plan[1:]
+return clip(base + best_plan[0], -1.0, 1.0)
+</code></pre>
+<p>This was the part that surprised me most: I did not tell it that model predictive planning was a good fit for Ant. After the rhythmic policy reached <code>3162</code>, it wrote a model-based residual planner on its own. The first version, with horizon 6, 32 candidates, and small residuals, moved the score from <code>3135</code> to <code>3635</code>. Then it kept maintaining the system:</p>
+<pre><code class="language-text">trial_name                               score_mean   cumulative_env_steps   note
+ant_lr_cpgpd_v1                         2291.9       5,000                  left/right anti-phase CPG + PD
+ant_yawaxis_grid_v2                     2857.9       20,000                 yaw feedback + retuned params
+ant_h3_428_v1                           3162.0       50,000                 second/third harmonics
+ant_mpc_residual_v1_ep1                 3635.5       62,000                 horizon=6, candidates=32
+ant_mpc_residual_cfg4_eval5             3964.7       67,000                 horizon=8, candidates=48
+ant_mpc_residual_cand07_eval5           4647.1       73,000                 local search around MPC config
+ant_mpc_residual_narrow04_eval5         4871.3       79,000                 lower z target, higher kp/candidates
+ant_mpc_residual_warm02_eval5           5165.2       85,000                 warm-start residual plan
+ant_mpc_fast065x060_sigma008_clip012    5759.4       95,000                 faster gait + larger residuals
+ant_mpc_term001_ep1                     6054.5       100,000                terminal velocity cost
+ant_mpc_default_adaptive_ep1            6146.2       106,300                speed-adaptive phase + stance
+</code></pre>
+<p><img alt="Ant sample efficiency" src="heuristic_ant_sample_efficiency.png"></p>
+<video controls src="heuristic_ant_mpc_default_6146_render480.mp4" width="480"></video>
+
+<details>
+<summary>Reproduce the default Ant policy</summary>
+
+This command reproduces the final default MPC policy. It is much slower than Breakout, because every real environment step evaluates `96 x 10` candidate residual actions inside a local MuJoCo model. The command below assumes the current directory is this article's artifact directory; `ant_envpool.xml` is already in the same directory as the script.
+
+
+<pre><code class="language-bash">rm -f /tmp/repro_ant_6146_eval5.jsonl /tmp/repro_ant_6146_eval5.csv
+python heuristic_ant.py \
+  --policy mpc \
+  --episodes 5 \
+  --seed 0 \
+  --max-steps 1000 \
+  --mujoco-xml-path ant_envpool.xml \
+  --trial-name repro_ant_6146_eval5 \
+  --log-path /tmp/repro_ant_6146_eval5.jsonl \
+  --summary-path /tmp/repro_ant_6146_eval5.csv
+</code></pre>
+
+
+This command runs 5 episodes at once. It is much slower than the single-episode reproduction, but it shows some variance. The expected output should include `mean=6005.521`, `min=5776.805`, and `max=6146.208`. When I reran this command locally, the output was:
+
+
+<pre><code class="language-text">episode=0 score=6146.208 x_position=285.434
+episode=1 score=5982.507 x_position=277.088
+episode=2 score=6028.890 x_position=279.226
+episode=3 score=5776.805 x_position=267.084
+episode=4 score=6093.194 x_position=282.733
+eval_summary: episodes=5 env_steps=5000 mean=6005.521 min=5776.805 max=6146.208 x_mean=278.313 x_max=285.434
+</code></pre>
+
+
+</details>
+
+<p>The full experiment script is in <a href="heuristic_ant.py"><code>heuristic_ant.py</code></a>, the extracted minimal callable policy is in <a href="heuristic_ant_min_policy.py"><code>heuristic_ant_min_policy.py</code></a>, and the experiment ledger is in <a href="heuristic_ant_trials_summary.csv"><code>heuristic_ant_trials_summary.csv</code></a>.</p>
+<p>The Ant example is different from Breakout. In Breakout, after the geometry was found, regularized input brought extreme sample efficiency. In Ant, a maintainable heuristic system kept getting more complex without turning into an uncontrollable pile of scripts. By the end, the policy had oscillator phase, stance ratio, speed adaptation, roll/pitch/yaw feedback, foot contacts, short-horizon model rollouts, residual smoothing, terminal velocity cost, and warm-start plan decay. A human could certainly write one or two of those modules. Maintaining the full experiment ledger, code, videos, and failed directions in a single day is a very different level of difficulty.</p>
+<h2>Atari57: Throwing the Same Process at 57 Games</h2>
+<p>Breakout and Ant are two single-task stories. The Atari57 experiment was much more blunt: throw the same Codex workflow at the full Atari57 suite. For each environment, run both <code>ram</code> and <code>native_obs</code>, with 3 independent runs for each input type. In other words, each input type had <code>57 games x 3 runs = 171</code> coding-agent search trajectories.</p>
+<p>I did not run it like the two examples above, where I sat in the Codex App, watched intermediate results, gave hints, corrected failures, and asked it to continue tuning. The setup was simple: use the Codex CLI to batch-launch a bunch of <code>gpt-5.4</code>, <code>xhigh</code> agents. Each agent got the same prompt template with different <code>ENV_ID / OBS_MODE / REPEAT_INDEX</code>, and then I did not touch it until the agents finished and stopped. To reduce hidden context, I did not use the Codex App, and I did not let it read long-term memory. It was a one-shot CLI batch run. The original Atari57 batch prompt is folded below, so the boundary is easy to inspect.</p>
+<details>
+<summary>Original Atari57 batch prompt</summary>
+
+
+<pre><code class="language-text">You are a pragmatic and rigorous coding agent. Focus only on EnvPool's {{ENV_ID}} under the {{OBS_MODE}} setting. Design and continuously iterate on a handwritten heuristic policy yourself, push the score as high as possible, and record sample efficiency completely. Run the whole process locally on the current machine. Do not search the internet. Do not reference any existing solution.
+
+Task configuration:
+
+ENV_ID = &quot;{{ENV_ID}}&quot;
+OBS_MODE = &quot;{{OBS_MODE}}&quot;
+REPEAT_INDEX = {{REPEAT_INDEX}}
+KNOWN_BEST_SCORE = {{KNOWN_BEST_SCORE}}
+ENV_ROOT_DIR = &quot;/tmp/envpool_heuristic/{{ENV_ID}}&quot;
+ROOT_DIR = &quot;/tmp/envpool_heuristic/{{ENV_ID}}/{{OBS_MODE}}&quot;
+RUN_DIR = &quot;/tmp/envpool_heuristic/{{ENV_ID}}/{{OBS_MODE}}/run_{YYYYMMDD_HHMMSS}_{PID}&quot;
+
+ENVPOOL_VERSION = &quot;1.1.1&quot;
+FRAME_BUDGET = 20000000
+
+First create ENV_ROOT_DIR, ROOT_DIR, and RUN_DIR. Write every script, log, plot, and note produced by this run under RUN_DIR. Do not write into any repo workspace.
+
+Before starting the experiment, do not create a venv and do not reinstall envpool. Directly run a minimal import check in the current Python environment and confirm that `envpool.__version__ == &quot;1.1.1&quot;`. Write the Python version, envpool version, envpool package path, and minimal import check result into RUN_DIR/README.md. If the current environment is not `envpool==1.1.1`, report the error and stop. Do not switch versions yourself.
+
+Use REPEAT_INDEX as the initial random-seed offset, trial-name suffix, or another decorrelation mechanism for this search, so the 3 repeats do not mechanically become the exact same search trajectory.
+
+Different tasks land under different ROOT_DIR / RUN_DIR paths, so the directories are naturally isolated. There is no need to serialize tasks just to avoid path conflicts. If useful, you may run non-overlapping exploration, evaluation, or analysis steps in parallel within this task.
+
+Reference-score rule:
+
+This prompt directly provides `KNOWN_BEST_SCORE`. Use it only for reference and result comparison, not for deciding when to stop.
+
+Hard constraints:
+
+1. Treat the environment strictly as a black box. Do not read the envpool source implementation for this environment/wrapper, test code, ROM/XML details, or any file that would leak internal environment implementation. Only use information exposed through EnvPool's public API: make/reset/step/render, action_space, observation_space, obs, reward, done, and public fields in info.
+
+2. If OBS_MODE = &quot;native_obs&quot;:
+   - The policy may decide only from the native obs returned by reset/step and internal state maintained by the policy itself.
+   - Do not read info[&quot;ram&quot;] or any RAM content.
+   - Do not use render() as an extra input to the policy.
+
+3. If OBS_MODE = &quot;ram&quot;:
+   - The policy may read info[&quot;ram&quot;] and internal state maintained by the policy itself.
+   - Still do not call any unpublished simulator state or source-code internals.
+
+4. If ENV_ID is an Atari environment, you must use the environment initialization template below. Do not change resolution, frame stack, frame skip, reward clipping, or sticky actions on your own:
+
+```python
+import envpool
+
+env = envpool.make_gym(
+    ENV_ID,
+    num_envs=1,
+    batch_size=1,
+    seed=seed,
+    img_height=210,
+    img_width=160,
+    stack_num=1,
+    gray_scale=False,
+    frame_skip=1,
+    noop_max=1,
+    use_fire_reset=True,
+    episodic_life=False,
+    reward_clip=False,
+    repeat_action_probability=0.0,
+    full_action_space=False,
+)
+```
+
+5. If ENV_ID is not Atari, use that environment's default native obs initialization directly. Do not add wrappers unless the environment API explicitly requires them.
+
+6. I am not constraining how you iterate, search, or organize the heuristic. You may use target detection, trajectory prediction, state machines, parameter search, short-horizon planning, controllers, or any other purely handwritten method you choose. The only requirements are: do not train a neural network, do not read environment source code, and do not read hidden state.
+
+7. Do not stop to discuss a plan. Do not ask for confirmation. Do not output intermediate progress updates.
+
+8. Whenever you refresh the current run's `best_score`, do not stop immediately. First enter a &quot;code simplification phase&quot;:
+   - The goal is to compress the heuristic into a shorter, more direct, easier-to-reproduce implementation without lowering the current `best_score`.
+   - Prioritize deleting redundant search scripts, repeated branches, useless state, over-parameterization, and helper logic that does not contribute to the final score.
+   - After simplification, you must evaluate again and confirm that `best_score` did not drop. If it drops, revert to the previous version that did not drop.
+   - The final `policy.py` should be the simplest version corresponding to the current best score, not the bulkiest version that grew during search.
+
+Stopping rule:
+
+- For Atari tasks, the frame budget here is `FRAME_BUDGET = 20000000`. Because `frame_skip=1` is fixed, you can treat `cumulative_env_steps` directly as cumulative frames.
+- While `cumulative_env_steps &lt; FRAME_BUDGET`, do not stop because of score level, a short-term plateau, temporarily failing to find a better policy, or already exceeding/not exceeding KNOWN_BEST_SCORE. You must keep trying new heuristics, structures, searches, or evaluations.
+- You may stop and output the final summary only when `cumulative_env_steps &gt;= FRAME_BUDGET`.
+- If the current environment is not Atari, still use the same `FRAME_BUDGET = 20000000` and interpret it as a cumulative env-step limit.
+
+Output file requirements:
+
+1. policy.py
+   Save the current best heuristic. It should already have gone through the &quot;simplification phase&quot; and be as short and direct as possible without lowering best_score. Keep the interface simple, for example:
+
+```python
+class Policy:
+    def reset(self):
+        ...
+    def act(self, obs: np.ndarray, info: dict | None = None):
+        ...
+```
+
+2. trials.jsonl
+   Append one line for every trial, containing at least:
+   trial_index, timestamp, env_id, obs_mode, trial_name, episodes_finished, env_steps, score_mean, score_min, score_max, cumulative_env_steps, cumulative_episodes, policy_config, notes
+
+3. summary.csv
+   A summary generated from trials.jsonl.
+
+4. sample_efficiency.png
+   Draw two subplots from summary.csv:
+   - x = cumulative_env_steps, y = score_mean and running_best
+   - x = cumulative_episodes, y = score_mean and running_best
+
+5. README.md
+   At the end, write clearly: current best score, KNOWN_BEST_SCORE, REPEAT_INDEX, corresponding trial, cumulative env steps / episodes, FRAME_BUDGET, reproduction command, final simplified policy logic, main failed directions, and why you believe the stopping rule has been satisfied.
+
+Sample accounting:
+
+- Every trial / probe / debug rollout that actually steps the environment must count toward cumulative_env_steps and cumulative_episodes. Do not silently omit any of them.
+- Score is episode return. If a trial runs multiple episodes, record mean / min / max.
+
+Start now. First create RUN_DIR, probe ENV_ID's action_space, observation_space, reset obs shape, and step return structure, then decide how to iterate. Do not ask me questions or report progress midway. Output the final summary only after satisfying the stopping rule.
+</code></pre>
+
+
+</details>
+
+<p>The Atari57 scores in the figure below came from this unattended batch run. I did not watch videos halfway through and pick directions. I did not feed a game's failure reason back into Codex and ask it to continue editing. Human intervention can obviously push single-task scores higher; the Breakout and Ant experiments already show that the upper bound can keep moving. But I do not think human intervention is a necessary condition for this route. It is more like an accelerator while current models are still not strong enough. As models get smarter, many steps like "watch the failure video, infer the missing mechanism, and keep editing code" should move directly into the unattended loop. Each run is like a small coding-agent researcher. It first probes actions, observations, and rewards, then generates candidate heuristic policies or local search scripts, then keeps evaluating, recording the best score, watching failure modes, and editing.</p>
+<p><img alt="Atari57 sample efficiency compared with OpenRL Benchmark" src="atari57_openrl_sample_efficiency_context.png"></p>
+<p>The x-axis in this Atari57 figure starts at <code>10^4</code> environment steps because the earlier region is basically flat. The y-axis is Atari human-normalized score, or HNS. The Codex curves use the common Atari median convention: first take the median of the 3 independent runs for each game, then take the median across the 57 games. This statistic is not blown up by a few very high-scoring games, so it measures coverage: how many games this process has already found the key mechanism for.</p>
+<p>In this fully unattended batch run, <code>native_obs</code> reached <code>0.81</code> around <code>9.7M</code> steps, and <code>ram</code> reached <code>0.59</code>. In the same figure, the PPO2 / CleanRL EnvPool PPO median HNS curves saved by <a href="https://arxiv.org/abs/2402.03046">OpenRL Benchmark</a> are roughly <code>0.88</code> / <code>0.92</code> at <code>10M</code> steps. So the result is not "Codex has already beaten traditional reinforcement learning across the board." The more accurate statement is: a fairly rough coding-agent batch process, without looking at intermediate results at all, can already push the Atari57 median into the neighborhood of those baselines.</p>
+<p>An aggregate curve compresses all differences into one median, so I also plotted the 57 games individually. Raw Atari returns are not comparable across games, so this still uses each game's own HNS; the dashed line at <code>1.0</code> is human score. The left panel sorts by heuristic score, and the right panel puts the heuristic and OpenRL's CleanRL EnvPool PPO at the same coordinate for each game.</p>
+<p><img alt="Atari57 per-game HNS comparison" src="atari57_per_game_hns_comparison.png"></p>
+<p>This figure shows two things. First, there is overlap: in games like Breakout, Krull, DoubleDunk, Boxing, and DemonAttack, both the heuristic and the reinforcement-learning baseline get clearly above human score. Second, there are large differences too: the heuristic is relatively stronger on games such as Asterix, Jamesbond, Centipede, Bowling, Skiing, and Tennis; PPO is much stronger on Atlantis, VideoPinball, UpNDown, Assault, RoadRunner, and StarGunner. This distribution is more informative than a single median. The heuristic did not uniformly learn "how to play Atari"; in some games it quickly wrote down an effective mechanism, while in others it still had not found the right state representation or long-term strategy.</p>
+<p>The accounting also needs to be clear. The Codex curves come from the raw <code>summary.csv</code> files of these 342 batch runs. I reorganized the full result set and reconstructed every search trajectory by <code>cumulative_env_steps</code>. This is still not a strict leaderboard: the compute Codex spent writing code, reading logs, and watching videos is not counted as neural-network training compute; the PPO curves are the median HNS curves saved by that benchmark. The comparison is mainly about one signal: under regularized inputs, heuristic policies maintained by coding agents can use very little environment interaction to push many games into a competitive range, and RAM and native observation are not wildly far apart.</p>
+<p>The most interesting part of Atari57, to me, is that the source of sample efficiency changed. Traditional neural-network Atari learning has to learn representation, credit assignment, and action meanings again from high-dimensional input in every environment. Here, Codex decomposes the environment into a maintainable small-program system: aiming and dodging for shooters, bounces for paddle games, position rules for avoidance games, environment-wrapper details, and each environment's own failed-experiment ledger. It did not train a general neural network. It generated and maintained a batch of local heuristic/reflex systems.</p>
+<h2>Why I Think This Is Worth Thinking About</h2>
+<p>Compared with neural networks, the two most obvious advantages of heuristic policies are sample efficiency and interpretability. The sample efficiency is already visible above: many times, Codex needed only tens of thousands to hundreds of thousands of steps to build a working policy structure. Interpretability matters just as much. Every Breakout improvement maps to a concrete mechanism: stuck ball paths, low fast balls, late-stage offset decay, paddle action delay. Every Ant improvement also maps to a concrete module: phase, yaw feedback, harmonics, residual planning, warm start. When something fails, you can open the code and the video and see which condition, which state estimate, or which action delay broke. That feels very different from staring at a reward curve.</p>
+<p>Neural networks obviously have their own advantages, especially in expressivity, complex vision, and cross-state generalization. But this experiment made me think that many local control tasks do not need to be handed entirely to end-to-end training. A maintainable heuristic layer can first eat the "reflex actions" and "local geometry," leaving harder perception, long-horizon planning, and policy selection to learning systems. The system may not be simpler overall, but debugging becomes more like software engineering: logs, replays, ablations, and failure provenance.</p>
+<p>The core issue is still maintenance cost. In the past, heuristic systems were hard to maintain because the maintainer had to be a programmer, experimenter, debugger, data recorder, and half a control engineer at the same time. A Breakout policy has to remember loop breaking, late-stage offset decay, paddle delay, visual detectors, and RAM mapping. An Ant policy has to remember joint order, phase, balance feedback, rollout objectives, planning budget, and failed configurations. It is hard for humans to maintain that much complexity over time, so it was natural for people to put their hopes into end-to-end training.</p>
+<p>Coding agents make the tradeoff different. A heuristic system can become an "executable research note": state extraction, policy structure, parameter sweeps, failure diagnosis, video evidence, and sample-efficiency curves all live in the same code system. The policy is no longer just a fragile handwritten script. It can become a software artifact that an agent keeps maintaining, locally refactoring, and migrating across input formats.</p>
+<h2>Implications for Robotics</h2>
+<p>There is still room to imagine robotics applications here, but the boundary needs to be clear. Ant is simulated locomotion, not a real robot. In simulation, Codex can try tens of thousands or millions of steps, and falling over just means reset. In the real world, every failed attempt costs time, hardware wear, safety margin, scene reset, and sensor drift. So this loop cannot simply be moved onto a real robot and run blindly the way it runs in simulation.</p>
+<p>I would rather think of it as one layer of a robotics system, not a complete robotics solution. The parts that fit best are those where state can be observed reliably, failure can be rolled back safely, and the local control objective is clear: keep the body stable, return a joint to a safe angle, absorb force after foot contact, make an emergency recovery motion when falling, or limit force and speed as a gripper approaches an object. These are more like reflexes, and they may indeed be maintainable and regression-testable as programs.</p>
+<p>Manipulation tasks are much harder. Folding clothes, organizing cables, or opening soft packaging is not just about how robot joints move. The object state itself matters: cloth deformation, occlusion, contact history, friction, wrinkles, target shape. Writing a heuristic policy for this is not the same as tuning a few joint phases. Without good perceptual representations, recoverable action primitives, and sufficiently realistic simulation, a coding agent will also write brittle rules on top of the wrong state variables.</p>
+<p>So the more realistic form is probably a hybrid system: simulation and offline data first generate and filter candidate heuristics; the real robot only runs small, safe, guarded validations; neural networks handle perception, object-state estimation, and long-horizon value; heuristic/reflex systems handle low-latency safety constraints, local recovery, and test criteria; coding agents maintain interfaces, detectors, failure handling, and regression tests. In that form, the claim is not "handwrite cloth folding with heuristics." It is: pull some local regularities that can be written as programs out of end-to-end training.</p>
+<h2>Limitations</h2>
+<p>Sample efficiency: the environment steps in the Atari57 figure are real policy-local EnvPool steps, but they do not include Codex's time spent writing code, reading logs, or watching videos. They are also not equivalent to a standard neural-network training budget. In Ant, residual model predictive planning also uses local rollouts inside a MuJoCo model, and that compute should not be mixed with real EnvPool environment steps.</p>
+<p>RAM and image/native observations also need to be discussed separately. In the Atari57 aggregate result, the overall gap between RAM and native observations is not huge, and that is the most interesting phenomenon. But in single-game Breakout, the pure-image <code>14.5K</code> number is a transfer budget that inherits the geometric policy already found during the RAM stage. It shows that structure can be transferred and refactored by an agent. It should not be written as "pure image learned the maximum score from scratch in 14.5K steps."</p>
+<p>Some environments are also a poor fit for reactive heuristic policies. Montezuma's Revenge is the clearest counterexample. In this experiment record, state-graph search could reduce the key distance from <code>72</code> to <code>28</code>, but the reward was still <code>0</code>. I later tried for a long time and eventually touched around <code>400</code> points; by then the policy really had learned a chain like "climb the ladder, jump over the enemy, pick up the key, open the door." The problem is that this kind of policy is awkward to express with ordinary code branches: actions need precise timing, failures need recovery, and intermediate states need to re-enter the plan. The limitation here feels more like the representation of the policy itself is not strong enough. Montezuma made me think the policy format matters too: some environments need composable macro-actions, recoverable search state, and maybe a program structure better suited to long-horizon planning than ordinary if-else code.</p>
+<p>So the strongest conclusion here should be "promising," not "already replacing reinforcement-learning baselines." But the promise is real: once inputs are regularized, and once coding agents can maintain complex heuristic policies, sample efficiency can enter a regime that past neural-network learning curves rarely touched. That is what made me want to write this up.</p>
+<h2>Conclusion</h2>
+<p>This experiment changed how I think about heuristic policies. I used to put them in the fragile, temporary, unscalable bucket. Now I am more inclined to see them as software systems that coding agents can keep maintaining. They no longer look like a few fixed rules. They look more like a set of programmable reflexes whose tests, visualizations, parameters, refactors, migrations, and provenance can all be maintained.</p>
+<p>Atari57 shows that under regularized inputs, heuristic policies maintained by coding agents can use very few environment steps to push median HNS close to neural-network baselines, and that this can happen in an unattended batch run. It also exposes the current problem: search trajectories are heavy-tailed. Some games reveal their structure quickly, while others still do not. Breakout shows that with human intervention, the single-task upper bound can move higher: first discover geometric control, then maintain stuck handling and late-stage offset decay, and finally migrate the RAM state reader into an RGB detector. Ant shows that even in continuous control, Codex can start from a simple rhythmic gait, introduce residual model predictive planning on its own, and maintain a high-scoring multi-joint reflex system.</p>
+<p>If I continue this line of work, I am no longer that interested in "raise one more game's score." I am more interested in making the process systematic: give a coding agent an environment, a strict experiment ledger, a sampling budget, and a rendering/diagnostic interface, then let it discover, maintain, and regression-test a heuristic/reflex layer on its own. This used to be too tiring for humans to maintain, so almost nobody took it seriously. With coding agents, it suddenly becomes a reasonable research direction. I also think that as models get smarter, the iteration time and cost will fall quickly, so generating a heuristic policy will become much cheaper than it is today.</p>
+<p>The robotics version I most want to see is also narrower: start from safe, reproducible local reflexes and sim-to-real validation tools, instead of claiming that complex manipulation tasks can be handwritten directly. Real-world iteration is slow, and manipulation tasks involve object state, so this route is more likely to become part of training and testing systems: low-level reflexes handle safety and local feedback, while higher-level policies and perception models handle goals, object understanding, and composition. In that world, each joint does not necessarily need to be trained from zero, and each failure does not necessarily need to be absorbed by a larger network.</p>
+<h2>Acknowledgements</h2>
+<p>Thanks to <a href="https://costa.sh/">Costa Huang</a> and <a href="https://tairanhe.com/">Tairan He</a> for feedback on this article.</p>
+<h2>Citation</h2>
+<p>If you need to cite this article in LaTeX, you can start with the BibTeX below. After publication, replace <code>url</code> with the final link.</p>
+<pre><code class="language-bibtex">@misc{weng2026codex_heuristic_policy,
+  title = {Make Heuristics Great Again: Letting Codex Build Heuristic Systems from Scratch},
+  author = {Weng, Jiayi},
+  year = {2026},
+  month = apr,
+  howpublished = {\url{https://example.com/codex-heuristic-policy}},
+  note = {Blog post}
+}
+</code></pre>
+<p>In the text, you can write:</p>
+<pre><code class="language-latex">\usepackage{url}
+
+... as discussed in \cite{weng2026codex_heuristic_policy}.
+</code></pre>
+    </article>
+    <article id="article-zh" class="lang-pane" lang="zh-CN" hidden>
+<h1>Make Heuristics Great Again：让 Codex 从零构建启发式系统</h1>
+<blockquote>
+<p>Jiayi Weng</p>
+</blockquote>
+<p>最近我在 EnvPool 里做了一组实验：不训练神经网络，也不做任何强化学习，只是把环境交给 Codex，让它自己写策略、跑评测、看日志、改代码，目标只有一个：把 Atari 和 MuJoCo 的分数往上推。结果比我预期夸张：Pong 到了 <code>21</code>，Breakout 的 RAM 输入和纯图像输入都到了 <code>864</code>；MuJoCo 里 Ant-v5 到了 <code>6146</code>，HalfCheetah-v5 到了 <code>12041</code>。</p>
+<p>虽然这个不是“几条 if-else 就能打赢任何强化学习策略”的标题党，但是真正让我在意的是成本结构：以前启发式系统难维护，要写检测，要猜动作含义，要处理跳帧和发球，要维护条件分支，要跑参数扫描，还要记清楚每个分数到底从哪里来。人很难长期把这些东西塞进脑子里全局维护，所以启发式策略很容易变成一次性脚本。</p>
+<p>Codex 让我感觉这个取舍变了。它不是只写一个 <code>policy.py</code> 就结束，而是继续像维护小型软件项目一样做后面的事：写测试，跑批量实验，看视频，改参数，加日志，画样本效率曲线，删掉坏方向，把好配置固化下来。以前启发式看起来像旧时代的土办法，现在我反而觉得它可能正好适合交给编程智能体维护。</p>
+<p>下面先讲怎么跑实验，再按顺序写三个例子：Breakout，因为它最直观，能看到一个 Atari 策略怎么一点点被调出来；Ant，因为连续控制里这个现象更像“条件反射系统自己长出来”；最后是 Atari57，因为它虽然没有单点故事那么干净，但更能说明批量无人工介入时这个方法的分布长什么样。</p>
+<h2>实验怎么跑</h2>
+<p>模型配置上，这些实验主要用的是 Codex 5.4、<code>xhigh</code>。我没有在这里做模型大小或推理强度的系统消融，所以这篇文章讨论的是这个配置下的现象，而不是不同模型之间的比较。</p>
+<p>最早的出发点其实很工程：我想给 EnvPool 做环境正确性验证，需要一些比随机策略强很多、但又不需要训练的策略。随机策略太弱，很多环境里一整局都碰不到关键奖励，失败时只能看到超时或者 0 分，很难判断是环境错了、封装层错了，还是策略根本没走到有信息的状态。给每个环境都训练一个神经网络又太重，版本、依赖、训练预算、检查点都会变成测试系统自己的负担。</p>
+<p>一开始我试过最直接的办法：问 Codex “写一个能解决 Breakout 的策略”，让它跑一局、看分数、继续改。效果一般，因为低分没有解释力。它不知道是动作理解错了、状态读错了、评测设置错了，还是策略结构本身不行。后来我把任务改成让它先维护一个完整闭环：先写检测，再写策略，再跑完整回合，再写实验记录，最后才把 <code>policy.py</code> 固化下来。</p>
+<p>这个闭环最早是在 Pong 和 Breakout 上磨出来的。检测一开始只是确认动作空间和观测形状，后来变成动作含义检测、像素阈值检测、RAM 字节和图像位置的相关性检测、短视频回放、最后几十步轨迹记录。再后来才加上 <code>trials.jsonl</code> / <code>summary.csv</code> 这种实验记录，每次改动都必须记累计环境步、分数、配置和失败原因。最后比较好的设置是先探测可观测状态，再提出一个小改动，完整回合复验，通过以后才固化；每次刷新最高分后还要做一轮简化，把搜索过程中长出来的临时脚本和无效分支删掉。</p>
+<p>开发这个闭环最耗时间是把“看见什么、动作是什么意思、这个分数从哪里来”这些弄清楚。Pong 里最耗时的是阈值和 RAM 坐标对齐；Breakout 里最耗时的是区分“会接球”和“会继续清砖”；Ant 里最耗时的是把真实环境步、MuJoCo 模型内规划步和实验记录分开。这个过程很像把一个原本只会给分数的黑盒，改造成一个可以调试的软件系统。</p>
+<p>最后固定下来的流程大概是这样：</p>
+<ol>
+<li>先写评测框架，确认观测、动作、奖励、终止条件、随机种子和跳帧设置。</li>
+<li>每次实验都追加到 <code>trials.jsonl</code>，再生成 <code>summary.csv</code>，记录 <code>env_steps</code>、分数、配置和备注。</li>
+<li>写探测脚本找可控状态变量，比如 RAM 字节、RGB 连通域、MuJoCo 关节顺序、根部速度、接触模式。</li>
+<li>每轮只改一个方向，比如检测器、目标点、卡住处理、规划器目标、候选动作库，或者短视窗代理目标。</li>
+<li>只有完整回合复验通过，才把配置提升成默认。</li>
+</ol>
+<p>这看起来只是普通实验纪律，但对 Codex 很关键。没有实验记录，它跑几十轮以后很容易把“300 步变好”和“完整回合变好”混在一起，也会把真实环境步数和 MuJoCo 模型里的内部展开混在一起。有实验记录以后，它就更像在维护一个软件系统：每个改动有来源，每个失败方向有备注，下一轮不会又踩同一个坑。</p>
+<h2>Breakout：从只会接球到理论最高分 864</h2>
+<p>Breakout 最开始看起来就是个几何问题：球在哪里，挡板在哪里，球撞墙以后会落到哪里。后面麻烦的其实是另一件事：策略可以永远接得到球，但再也打不到新砖。</p>
+<p>Codex 第一轮没有急着写最终策略。它先确认动作空间和观测形状，再从 RGB 画面里找挡板、球、砖块的颜色，然后用图像标签去扫 128 个 RAM 字节。早期实验记录大概长这样：</p>
+<pre><code class="language-text">trial_name                 score   cumulative_env_steps   note
+shape_action_probe          -      32                     inspect obs/info/action
+ram_byte_corr_probe_v1      -      5,032                  correlate RAM bytes
+ram_fit_action_probe_v2     -      9,532                  action 2=right, 3=left
+baseline_v0                99      16,303                 initial RAM intercept
+tunnel0_v1                387      43,303                 no tunnel offset
+</code></pre>
+<p><code>387</code> 是第一个很容易骗过人的局部高分。策略已经能稳定接球，但它只是把球送进一个周期：不会死，也不会继续清砖。这里如果是人手写启发式策略，很容易以为问题还是“接球不准”，然后继续调截距。Codex 是通过视频和最后几十步轨迹看出来，问题其实是球路缺少扰动。</p>
+<video controls src="heuristic_breakout_score387_tunnel0_render210x160.mp4" width="360"></video>
+
+<p><code>387</code> 这段视频里能看到问题：球和挡板已经形成稳定循环，但砖块推进停住了。</p>
+<details>
+<summary>复现 `387` 分</summary>
+
+下面命令假设当前目录就是这篇文章的 artifact 目录，也就是 `heuristic_breakout.py` 所在目录。它会把临时实验记录写到 `/tmp`，不污染正文用的实验记录。
+
+
+<pre><code class="language-bash">rm -f /tmp/repro_breakout_387.jsonl /tmp/repro_breakout_387.csv
+python heuristic_breakout.py \
+  --policy ram \
+  --episodes 1 \
+  --seed 0 \
+  --max-steps 27000 \
+  --deadband 3 \
+  --chase-lead-steps 6 \
+  --tunnel-offset 0 \
+  --launch-offset 24 \
+  --fast-ball-min-vy 1000000000 \
+  --stuck-trigger-steps 1000000000 \
+  --stuck-switch-steps 0 \
+  --stuck-offset 0 \
+  --stuck-release-horizon-steps 0 \
+  --brick-balance-bias-min-score 1000000000 \
+  --late-game-paddle-lag-px 0 \
+  --trial-name repro_breakout_387 \
+  --log-path /tmp/repro_breakout_387.jsonl \
+  --summary-path /tmp/repro_breakout_387.csv
+</code></pre>
+
+
+期望输出里应该包含 `score=387.0` 和 `mean=387.000`。
+
+</details>
+
+<p>它加的第一个关键机制是打破循环：如果连续很久没有奖励，就在预测落点上周期性加偏移，把球打出局部循环。这个改动把分数从 <code>387</code> 推到 <code>507</code>。</p>
+<pre><code class="language-python">if steps_since_reward &gt;= stuck_trigger_steps:
+    phase = stuck_offset_index % 4
+    if phase == 0:
+        offset = +stuck_offset_px
+    elif phase == 1:
+        offset = -stuck_offset_px
+    elif phase == 2:
+        offset = +0.5 * stuck_offset_px
+    else:
+        offset = -0.5 * stuck_offset_px
+else:
+    offset = 0.0
+</code></pre>
+<video controls src="heuristic_breakout_score507_stuckbreaker_render210x160.mp4" width="360"></video>
+
+<p><code>507</code> 这一步的关键不在接球能力，而在球路控制：策略开始主动把球从局部循环里打出来。</p>
+<details>
+<summary>复现 `507` 分</summary>
+
+
+<pre><code class="language-bash">rm -f /tmp/repro_breakout_507.jsonl /tmp/repro_breakout_507.csv
+python heuristic_breakout.py \
+  --policy ram \
+  --episodes 1 \
+  --seed 0 \
+  --max-steps 27000 \
+  --deadband 3 \
+  --chase-lead-steps 6 \
+  --tunnel-offset 0 \
+  --launch-offset 24 \
+  --fast-ball-min-vy 1000000000 \
+  --stuck-trigger-steps 1024 \
+  --stuck-switch-steps 256 \
+  --stuck-offset 12 \
+  --stuck-release-horizon-steps 0 \
+  --brick-balance-bias-min-score 1000000000 \
+  --late-game-paddle-lag-px 0 \
+  --trial-name repro_breakout_507 \
+  --log-path /tmp/repro_breakout_507.jsonl \
+  --summary-path /tmp/repro_breakout_507.csv
+</code></pre>
+
+
+期望输出里应该包含 `score=507.0` 和 `mean=507.000`。
+
+</details>
+
+<p>后面又遇到另一个失败模式：高速低位球如果按普通截距追，挡板会被过度前视带偏。Codex 加了 <code>fast_low_ball_lead_steps=3</code>，分数直接从 <code>507</code> 跳到 <code>839</code>。</p>
+<pre><code class="language-python">if vy &gt; 0.1 and ball_y &lt;= paddle_y:
+    steps_to_paddle = max((paddle_y - ball_y) / vy, 0.0)
+    intercept_x = reflect_position(ball_x + vx * steps_to_paddle)
+    target_x = intercept_x + stuck_offset
+elif vy &gt;= fast_ball_min_vy:
+    target_x = ball_x + fast_low_ball_lead_steps * vx
+else:
+    target_x = ball_x + chase_lead_steps * vx
+</code></pre>
+<video controls src="heuristic_breakout_score839_fastlead_render210x160.mp4" width="360"></video>
+
+<p><code>839</code> 这段能看出另一个变化：低位高速球不再把挡板一路带偏，策略终于稳定进入清后半面墙的阶段。</p>
+<details>
+<summary>复现 `839` 分</summary>
+
+
+<pre><code class="language-bash">rm -f /tmp/repro_breakout_839.jsonl /tmp/repro_breakout_839.csv
+python heuristic_breakout.py \
+  --policy ram \
+  --episodes 1 \
+  --seed 0 \
+  --max-steps 27000 \
+  --deadband 3 \
+  --chase-lead-steps 6 \
+  --tunnel-offset 0 \
+  --launch-offset 24 \
+  --fast-ball-min-vy 3 \
+  --fast-low-ball-lead-steps 3 \
+  --stuck-trigger-steps 1024 \
+  --stuck-switch-steps 256 \
+  --stuck-offset 12 \
+  --stuck-release-horizon-steps 0 \
+  --brick-balance-bias-min-score 1000000000 \
+  --late-game-paddle-lag-px 0 \
+  --trial-name repro_breakout_839 \
+  --log-path /tmp/repro_breakout_839.jsonl \
+  --summary-path /tmp/repro_breakout_839.csv
+</code></pre>
+
+
+期望输出里应该包含 `score=839.0` 和 `mean=839.000`。
+
+</details>
+
+<p>从 <code>839</code> 到 <code>864</code>，反而是最像维护复杂启发式系统的一段。Codex 试了死区、发球偏移、卡住偏移、砖块平衡偏置、前视步数，很多方向都没用。最后有效的是一个后期条件：分数超过第一面墙以后，卡住偏移只在离挡板还远的时候生效；快接球时把偏移逐步收掉，不然最后几块砖阶段会自己把挡板带偏。同时它又加了一个很小的挡板漂移补偿，补动作和挡板位置之间的一步延迟。</p>
+<pre><code class="language-python">if score &gt;= 432 and stuck_release_horizon_steps &gt; 0:
+    release_ratio = clip(steps_to_paddle / stuck_release_horizon_steps, 0.0, 1.0)
+    offset *= release_ratio
+
+if score &gt;= 432 and ball_y &gt;= 170 and last_action == RIGHT:
+    control_paddle_x = paddle_x + 2.0
+elif score &gt;= 432 and ball_y &gt;= 170 and last_action == LEFT:
+    control_paddle_x = paddle_x - 2.0
+</code></pre>
+<video controls src="heuristic_breakout_ci3985ae2_score864_render210x160.mp4" width="360"></video>
+
+<details>
+<summary>复现 `864` 分</summary>
+
+
+<pre><code class="language-bash">rm -f /tmp/repro_breakout_864.jsonl /tmp/repro_breakout_864.csv
+python heuristic_breakout.py \
+  --policy ram \
+  --episodes 1 \
+  --seed 0 \
+  --max-steps 108000 \
+  --deadband 3 \
+  --chase-lead-steps 6 \
+  --tunnel-offset 0 \
+  --launch-offset 24 \
+  --fast-ball-min-vy 3 \
+  --fast-low-ball-lead-steps 3 \
+  --stuck-trigger-steps 1024 \
+  --stuck-switch-steps 256 \
+  --stuck-offset 12 \
+  --stuck-release-horizon-steps 8 \
+  --brick-balance-deadzone 0.01 \
+  --brick-balance-bias-min-score 432 \
+  --late-game-paddle-lag-px 2 \
+  --late-game-lag-ball-y 170 \
+  --trial-name repro_breakout_864 \
+  --log-path /tmp/repro_breakout_864.jsonl \
+  --summary-path /tmp/repro_breakout_864.csv
+</code></pre>
+
+
+期望输出里应该包含 `score=864.0` 和 `mean=864.000`。
+
+</details>
+
+<p>最终 RAM 默认配置三局验证是 <code>864/864/864</code>。更有意思的是，Codex 后来把同一套几何控制迁移回纯图像输入：不用 RAM，只用 RGB 分割找挡板、球和砖块平衡。纯图像版本先是 <code>310</code>，然后 <code>428</code>，最后把后期“卡住偏移逐步收掉”的阈值放低到全程生效，7 个策略本地回合后第一次到 <code>864</code>，对应图里的 <code>14,504</code> 个策略本地环境步数。</p>
+<p><img alt="Breakout 样本效率" src="heuristic_breakout_sample_efficiency.png"></p>
+<p>完整策略代码在 <a href="heuristic_breakout.py"><code>heuristic_breakout.py</code></a>，实验记录在 <a href="heuristic_breakout_trials_summary.csv"><code>heuristic_breakout_trials_summary.csv</code></a>。</p>
+<p>这里最值得看的不是“纯图像从零 <code>14.5K</code> 步到满分”。这个说法不准确。更准确的是：Codex 先在 RAM 版本里把几何控制、打破循环、后期收偏移这些结构摸出来；等这些结构稳定以后，再把状态读取层从 RAM 换成 RGB 检测器。纯图像的 <code>14.5K</code> 是迁移预算，不是从零预算。它说明的是另一件事：启发式策略一旦被写成可维护的软件结构，后面可以替换输入层、重用控制逻辑、继续回归测试，而不是每换一种观测就重新训练一个系统。</p>
+<h2>Ant：Codex 自己把步态和模型预测规划引进来</h2>
+<p>如果说 Breakout 的几何结构还比较直观，Ant 对我更意外。我没有一开始说“用 CPG”，也没有说“用 MPC”；事实上我现在也不知道 MPC 是什么。我的要求只是延续前面的闭环：写启发式策略，不训练神经网络，提高分数，留下日志和复现命令。Codex 先读 EnvPool/Gymnasium 的 Ant 观测和奖励，确认动作顺序、根部速度、躯干朝向、关节位置和关节速度，然后自己提出第一版节律步态。</p>
+<p>第一版是四腿相位振荡器：左右腿反相，髋关节和踝关节跟踪正弦目标角，动作由 PD 控制器给出。它不优雅，但一上来就比随机强很多，5 个随机种子的平均分是 <code>2291</code>。</p>
+<pre><code class="language-python">leg_phase = warp_phase(phase + LEG_PHASE, stance_duty(vx))
+stance = leg_phase &lt; pi
+
+hip_wave = HIP_BIAS + stance_or_swing_scale * (
+    HIP_AMP * sin(leg_phase)
+    + HIP_H2_AMP * sin(2 * leg_phase + HIP_H2_PHASE)
+    + HIP_H3_AMP * sin(3 * leg_phase + HIP_H3_PHASE)
+)
+
+action[0::2] = KP * (
+    HIP_SIGN * hip_wave
+    + HEADING_AXIS * (YAW_GAIN * yaw + YAW_RATE_GAIN * yaw_rate)
+    - q[0::2]
+)
+action[1::2] = KP * (ANKLE_SIGN * (ankle_wave + balance) - q[1::2])
+</code></pre>
+<p>后面的早期迭代很像调一个真实机器人：先加偏航反馈到 <code>2718</code>，再调相位速度、髋/踝幅度、偏航角速度增益到 <code>3025</code>，然后加二阶/三阶谐波到 <code>3162</code>。Codex 也试过大范围 CEM 搜索，但结果没有稳定超过当前节律策略，于是它没有继续把搜索规模硬怼上去，转向了另一种表示方式。</p>
+<p>Ant 的跃迁来自 Codex 引入的残差模型预测规划，也就是代码里写的 MPC。我的理解是：保留节律步态作为“条件反射”，每个真实环境步在本地 MuJoCo 模型里采样几十条小的残差动作序列，打分后只执行第一个残差动作，并把剩下的计划热启动到下一步。这样每一步都不用从零规划 8 个关节怎么动；策略先有一个稳定的基础步态，再用短视模型规划去修正这个步态。</p>
+<p>MPC 可以理解成“边走边想一小段未来”。它不是训练一个策略网络，也不是一开始就算出从第 0 步到终点的完整轨迹；它是在当前状态下用模型试几种接下来可能的动作序列，挑一个看起来最好的，只执行第一步，然后下一步重新看状态、重新试。对 Ant 来说，这件事很适合放在启发式策略外面：节律步态负责让机器人像一个能走路的东西，MPC 负责在每一步小幅修正，让它更少摔倒、更少偏航、更快往前走。</p>
+<pre><code class="language-python">base = cpg_action(phase, q, dq, roll, pitch, yaw, rates, contacts, vx)
+
+best_plan = previous_plan.copy()
+best_obj = rollout_objective(obs, best_plan)
+for _ in range(CANDIDATES - 1):
+    residuals = clip(
+        best_plan + rng.normal(0.0, MPC_SIGMA, size=(HORIZON, 8)),
+        -MPC_CLIP,
+        MPC_CLIP,
+    )
+    residuals[1:] = 0.6 * residuals[1:] + 0.4 * residuals[:-1]
+    obj = rollout_objective(obs, residuals)
+    if obj &gt; best_obj:
+        best_obj = obj
+        best_plan = residuals
+
+plan[:-1] = PLAN_DECAY * best_plan[1:]
+return clip(base + best_plan[0], -1.0, 1.0)
+</code></pre>
+<p>这件事最让我意外的地方在这里：我没有告诉它“模型预测规划很适合 Ant”。它是在节律策略到 <code>3162</code> 后，自己写了一个基于模型的残差规划器。第一版视窗长度 6、32 个候选、小残差，就从 <code>3135</code> 提到 <code>3635</code>。然后它继续维护这个系统：</p>
+<pre><code class="language-text">trial_name                               score_mean   cumulative_env_steps   note
+ant_lr_cpgpd_v1                         2291.9       5,000                  左右腿反相 CPG + PD
+ant_yawaxis_grid_v2                     2857.9       20,000                 偏航反馈 + 重调参数
+ant_h3_428_v1                           3162.0       50,000                 二阶/三阶谐波
+ant_mpc_residual_v1_ep1                 3635.5       62,000                 视窗=6，候选=32
+ant_mpc_residual_cfg4_eval5             3964.7       67,000                 视窗=8，候选=48
+ant_mpc_residual_cand07_eval5           4647.1       73,000                 围绕 MPC 配置做局部搜索
+ant_mpc_residual_narrow04_eval5         4871.3       79,000                 降低 z 目标，增大 kp/候选数
+ant_mpc_residual_warm02_eval5           5165.2       85,000                 热启动残差计划
+ant_mpc_fast065x060_sigma008_clip012    5759.4       95,000                 更快步态 + 更大残差
+ant_mpc_term001_ep1                     6054.5       100,000                终端速度代价
+ant_mpc_default_adaptive_ep1            6146.2       106,300                速度自适应相位 + 支撑期
+</code></pre>
+<p><img alt="Ant 样本效率" src="heuristic_ant_sample_efficiency.png"></p>
+<video controls src="heuristic_ant_mpc_default_6146_render480.mp4" width="480"></video>
+
+<details>
+<summary>复现默认 Ant 策略</summary>
+
+这个命令会复现最终默认 MPC 策略。它比 Breakout 慢很多，因为每个真实环境步都会在本地 MuJoCo 模型里评估 `96 x 10` 个候选残差动作。下面命令假设当前目录就是这篇文章的 artifact 目录；`ant_envpool.xml` 已经和脚本放在同一个目录里。
+
+
+<pre><code class="language-bash">rm -f /tmp/repro_ant_6146_eval5.jsonl /tmp/repro_ant_6146_eval5.csv
+python heuristic_ant.py \
+  --policy mpc \
+  --episodes 5 \
+  --seed 0 \
+  --max-steps 1000 \
+  --mujoco-xml-path ant_envpool.xml \
+  --trial-name repro_ant_6146_eval5 \
+  --log-path /tmp/repro_ant_6146_eval5.jsonl \
+  --summary-path /tmp/repro_ant_6146_eval5.csv
+</code></pre>
+
+
+这条命令一次跑 5 个 episode，比单 episode 复现慢很多，但能看到一点方差。期望输出里应该包含 `mean=6005.521`、`min=5776.805`、`max=6146.208`。我本地重跑这条命令时，输出是：
+
+
+<pre><code class="language-text">episode=0 score=6146.208 x_position=285.434
+episode=1 score=5982.507 x_position=277.088
+episode=2 score=6028.890 x_position=279.226
+episode=3 score=5776.805 x_position=267.084
+episode=4 score=6093.194 x_position=282.733
+eval_summary: episodes=5 env_steps=5000 mean=6005.521 min=5776.805 max=6146.208 x_mean=278.313 x_max=285.434
+</code></pre>
+
+
+</details>
+
+<p>完整实验脚本在 <a href="heuristic_ant.py"><code>heuristic_ant.py</code></a>，抽出的最小可调用策略在 <a href="heuristic_ant_min_policy.py"><code>heuristic_ant_min_policy.py</code></a>，实验记录在 <a href="heuristic_ant_trials_summary.csv"><code>heuristic_ant_trials_summary.csv</code></a>。</p>
+<p>Ant 的例子和 Breakout 不太一样。Breakout 是发现几何以后，输入规整化带来了很夸张的样本效率；Ant 是一个可维护启发式系统不断变复杂，但没有变成一坨不可控脚本。到最后，策略里有振荡器相位、支撑期比例、速度自适应、滚转/俯仰/偏航反馈、脚部接触、短视窗模型内展开、残差平滑、终端速度代价、热启动计划衰减。人类当然可以写其中一两个模块，但要在一天内维护完整实验记录、代码、视频和失败方向，难度完全不一样。</p>
+<h2>Atari57：把这个流程直接撒到 57 个游戏上</h2>
+<p>Breakout 和 Ant 是两个单点故事。Atari57 这一组实验更粗暴：同一套 Codex 工作流直接扔到整套 Atari57 上，每个环境同时跑 <code>ram</code> 和 <code>native_obs</code> 两种输入，每种输入撒 3 个独立运行。也就是说，每种输入都有 <code>57 个游戏 x 3 次运行 = 171</code> 条编程智能体搜索轨迹。</p>
+<p>我没有像上面两个例子一样，在 Codex App 里一边看中间结果、一边提示、一边纠偏、一边让它继续调。当时做法很简单：用 Codex CLI 批量启动一堆 <code>gpt-5.4</code>、<code>xhigh</code> 的智能体，每个智能体拿到同一个提示词模板和不同的 <code>ENV_ID / OBS_MODE / REPEAT_INDEX</code>，然后我全程不管，等它们执行完停下来以后再收集结果。为了减少不可见上下文，我没有用 Codex App，也没有让它读长期记忆；这是一次性的 CLI 批量运行。下面是 Atari57 批量提示词原文，折叠起来放在这里，方便复现时判断边界。</p>
+<details>
+<summary>Atari57 批量提示词原文</summary>
+
+
+<pre><code class="language-text">你是一个务实、严谨的 coding agent。现在请只针对 EnvPool 的 {{ENV_ID}}，在 {{OBS_MODE}} 设定下，自己设计并持续迭代一个手写 heuristic policy，把分数尽量推到最高，同时完整记录 sample efficiency。整个过程只在当前机器本地跑，不要联网查资料，不要参考任何现成解法。
+
+任务配置：
+
+ENV_ID = &quot;{{ENV_ID}}&quot;
+OBS_MODE = &quot;{{OBS_MODE}}&quot;
+REPEAT_INDEX = {{REPEAT_INDEX}}
+KNOWN_BEST_SCORE = {{KNOWN_BEST_SCORE}}
+ENV_ROOT_DIR = &quot;/tmp/envpool_heuristic/{{ENV_ID}}&quot;
+ROOT_DIR = &quot;/tmp/envpool_heuristic/{{ENV_ID}}/{{OBS_MODE}}&quot;
+RUN_DIR = &quot;/tmp/envpool_heuristic/{{ENV_ID}}/{{OBS_MODE}}/run_{YYYYMMDD_HHMMSS}_{PID}&quot;
+
+ENVPOOL_VERSION = &quot;1.1.1&quot;
+FRAME_BUDGET = 20000000
+
+请先创建 ENV_ROOT_DIR、ROOT_DIR 和 RUN_DIR。本次运行产生的所有脚本、日志、图、说明文档都写到 RUN_DIR 下面，不要写进任何 repo 工作区。
+
+开始实验前，不要创建 venv，也不要重装 envpool。直接在当前 Python 环境里做一次最小 import 验证，确认 `envpool.__version__ == &quot;1.1.1&quot;`。把 Python 版本、envpool 版本、envpool 包文件位置、以及一次最小 import 验证结果写进 RUN_DIR/README.md。如果当前环境不是 `envpool==1.1.1`，就直接报错停止，不要自行切版本。
+
+请把 REPEAT_INDEX 用作本次搜索的初始随机种子偏移、trial 命名后缀或其它去相关机制，保证 3 次 repeat 不是机械地跑成完全同一条搜索轨迹。
+
+不同任务会落在不同的 ROOT_DIR / RUN_DIR 下面，目录天然隔离，不需要为了避免路径冲突而串行化；如果你认为有帮助，可以放心在本任务内部并行执行互不覆盖的探索、评估或分析步骤。
+
+参考分数规则：
+
+这个 prompt 已经直接给出了 `KNOWN_BEST_SCORE`。它只用于参考和结果对比，不用于决定何时停止。
+
+硬约束：
+
+1. 严格把环境当黑盒。不要阅读 envpool 仓库里该环境/wrapper 的实现源码、测试代码、ROM/XML 细节，或者任何会泄漏环境内部实现的文件。只能使用 envpool 对外 API 暴露的信息：make/reset/step/render、action_space、observation_space、obs、reward、done、info 的公开字段。
+
+2. 如果 OBS_MODE = &quot;native_obs&quot;：
+   - policy 只能基于 reset/step 返回的原生 obs，以及 policy 自己维护的内部状态来决策。
+   - 不允许读取 info[&quot;ram&quot;] 或任何 RAM 内容。
+   - 不要把 render() 当成额外输入喂给 policy。
+
+3. 如果 OBS_MODE = &quot;ram&quot;：
+   - policy 可以读取 info[&quot;ram&quot;] 和 policy 自己维护的内部状态。
+   - 仍然不要调用未公开的 simulator state 或源码内部实现。
+
+4. 如果 ENV_ID 是 Atari 环境，必须用下面这段环境初始化模板，不要擅自改分辨率、frame stack、frame skip、reward clipping 或 sticky action：
+
+```python
+import envpool
+
+env = envpool.make_gym(
+    ENV_ID,
+    num_envs=1,
+    batch_size=1,
+    seed=seed,
+    img_height=210,
+    img_width=160,
+    stack_num=1,
+    gray_scale=False,
+    frame_skip=1,
+    noop_max=1,
+    use_fire_reset=True,
+    episodic_life=False,
+    reward_clip=False,
+    repeat_action_probability=0.0,
+    full_action_space=False,
+)
+```
+
+5. 如果 ENV_ID 不是 Atari，就直接使用该环境默认 native obs 初始化；除非环境 API 明确要求，否则不要额外包 wrapper。
+
+6. 不限定你怎么迭代、怎么搜索、怎么组织 heuristic。你可以自己决定用目标检测、轨迹预测、状态机、参数搜索、短 horizon planning、controller 或任何别的纯手写方法；唯一要求是不要训练神经网络，不要读环境源码，不要读隐藏状态。
+
+7. 不要停下来讨论方案，不要请求确认，不要输出中途进展汇报。
+
+8. 每当你刷新当前 run 的 `best_score` 时，不要立刻停止。先进入一次“代码简化阶段”：
+   - 目标是在不降低当前 `best_score` 的前提下，把 heuristic 尽可能压缩成更短、更直接、更容易复现的实现。
+   - 优先删除冗余搜索脚本、重复分支、无效状态、过度参数化和对最终分数没有贡献的辅助逻辑。
+   - 简化后必须重新评估，确认 `best_score` 没有下降；如果下降，就回退到上一个不掉分的版本。
+   - 最终留下的 `policy.py` 应该是当前 best score 对应的尽可能简单版本，而不是搜索过程中最臃肿的版本。
+
+停止规则：
+
+- 对 Atari 任务，这里的 frame budget 定义为 `FRAME_BUDGET = 20000000`。由于固定使用 `frame_skip=1`，所以这里可以把 `cumulative_env_steps` 直接当成累计 frame 数。
+- 在 `cumulative_env_steps &lt; FRAME_BUDGET` 时，不要因为分数高低、短期平台期、暂时找不到更好的策略、或者已经超过/没超过 KNOWN_BEST_SCORE 就停止；必须持续尝试新的 heuristic、结构、搜索或评估。
+- 只有当 `cumulative_env_steps &gt;= FRAME_BUDGET` 时，才允许停止并输出最终总结。
+- 如果当前环境不是 Atari，也沿用同一个 `FRAME_BUDGET = 20000000`，把它解释为累计 env steps 上限。
+
+输出文件要求：
+
+1. policy.py
+   保存当前最好的 heuristic，而且它应该已经经过“简化阶段”，是在不降低 best score 的前提下尽可能短、尽可能直接的版本。接口尽量简洁，比如：
+
+```python
+class Policy:
+    def reset(self):
+        ...
+    def act(self, obs: np.ndarray, info: dict | None = None):
+        ...
+```
+
+2. trials.jsonl
+   每一次 trial 追加一行，至少包含：
+   trial_index, timestamp, env_id, obs_mode, trial_name, episodes_finished, env_steps, score_mean, score_min, score_max, cumulative_env_steps, cumulative_episodes, policy_config, notes
+
+3. summary.csv
+   从 trials.jsonl 汇总出来。
+
+4. sample_efficiency.png
+   根据 summary.csv 画两张子图：
+   - x = cumulative_env_steps，y = score_mean 和 running_best
+   - x = cumulative_episodes，y = score_mean 和 running_best
+
+5. README.md
+   最后写清楚：当前最好分数、KNOWN_BEST_SCORE、REPEAT_INDEX、对应 trial、累计 env steps / episodes、FRAME_BUDGET、复现命令、最终保留下来的简化版 policy 逻辑、主要失败方向、以及为什么你认为已经满足停止规则。
+
+sample 统计口径：
+
+- 所有实际 step 过环境的 trial / probe / debug rollout 都要计入 cumulative_env_steps 和 cumulative_episodes，不能偷偷漏掉。
+- score 以 episode return 为准；如果一个 trial 跑多个 episodes，就记 mean / min / max。
+
+现在直接开始执行。先创建 RUN_DIR，探测 ENV_ID 的 action_space、observation_space、reset obs shape、step 返回结构，然后自己决定怎么迭代。中途不要问我，也不要汇报进展，直到满足停止规则后再输出最终总结。
+</code></pre>
+
+
+</details>
+
+<p>下面这张 Atari57 图里的分数，是这种无人工介入批量运行自己跑出来的。我没有中途看视频挑方向，也没有把某个游戏的失败原因喂回去让它继续改。人工介入当然能把单点分数推得更高，Breakout 和 Ant 这种实验过程已经说明了上限可以继续往上走。但我不觉得人工介入是这条路线的必要条件，它更像现在模型能力还不够时的加速器。模型再聪明一些以后，很多“看失败视频、判断缺哪个机制、继续改代码”的步骤应该可以直接在无人工介入里完成。每个运行都像一个小的编程智能体研究员。它先探测动作、观测和奖励，再生成候选启发式策略或局部搜索脚本，然后不断评测、记录最高分、看失败模式、继续改。</p>
+<p><img alt="Atari57 样本效率对比 OpenRL Benchmark" src="atari57_openrl_sample_efficiency_context.png"></p>
+<p>这张图的横轴从 <code>10^4</code> 个环境步开始，因为更早的部分基本看不出变化；纵轴是 Atari 人类归一化分数，也就是 HNS。Codex 曲线按 Atari 常见的中位数口径画：每个游戏先把 3 次独立运行取中位数，再在 57 个游戏上取中位数。这个口径不会被少数特别高分的游戏拉爆，所以它看的是覆盖率：到底有多少游戏已经被这套流程摸到要害。</p>
+<p>在这种完全无人工介入的批量运行里，<code>native_obs</code> 到 <code>9.7M</code> 步附近是 <code>0.81</code>，<code>ram</code> 是 <code>0.59</code>。同一张图里，<a href="https://arxiv.org/abs/2402.03046">OpenRL Benchmark</a> 保存的 PPO2 / CleanRL EnvPool PPO 中位数 HNS 曲线到 <code>10M</code> 步大概是 <code>0.88</code> / <code>0.92</code>。所以这个结果并不是 Codex 已经全面打穿传统强化学习；更准确的说法是，一个很粗糙的编程智能体批量流程，在完全不看中途结果的情况下，已经能把 Atari57 的中位数推进到接近这些基线的区间。</p>
+<p>聚合曲线会把差异压到一个中位数里，所以我又把 57 个游戏逐个摊开画了一张。Atari 原始回报跨游戏没有可比性，这里仍然用每个游戏自己的 HNS；虚线 <code>1.0</code> 是人类分数。左图按 heuristic 分数排序，右图把 heuristic 和 OpenRL 里的 CleanRL EnvPool PPO 直接对到同一个坐标上。</p>
+<p><img alt="Atari57 每个游戏 HNS 对比" src="atari57_per_game_hns_comparison.png"></p>
+<p>这张图能看出两件事。第一，重合是有的：Breakout、Krull、DoubleDunk、Boxing、DemonAttack 这些游戏里，heuristic 和强化学习基线都能拿到明显高于人类基线的分数。第二，差异也很大：heuristic 在 Asterix、Jamesbond、Centipede、Bowling、Skiing、Tennis 这类游戏上相对更突出；PPO 在 Atlantis、VideoPinball、UpNDown、Assault、RoadRunner、StarGunner 上明显强很多。这个分布比一个中位数更有信息：heuristic 不是均匀地学到“玩 Atari”，而是在某些游戏里很快写出了有效机制，在另一些游戏里还没找到对的状态表示或长期策略。</p>
+<p>这里也要把账算清楚。Codex 曲线来自这次 342 条批量运行的原始 <code>summary.csv</code>，我把所有结果重新整理后，按 <code>cumulative_env_steps</code> 还原每条搜索轨迹。它仍然不能当严格排行榜：Codex 写代码、读日志和看视频的计算量没有按神经网络训练计算量计入；PPO 曲线则是它保存的中位数 HNS 曲线。这段比较主要看一个信号：在规整输入下，编程智能体维护的启发式策略已经可以用很少环境交互，把不少游戏推到有竞争力的区间，而且 RAM 和原生观测没有差得离谱。</p>
+<p>我觉得 Atari57 最有意思的地方，是样本效率的来源变了。传统神经网络 Atari 学习要在每个环境里从高维输入重新学表示、信用分配和动作含义；这里 Codex 做的是把环境拆成可维护的小程序系统：射击游戏的瞄准/躲避，接球游戏的反弹，躲避游戏的位置规则，环境包装器细节，以及每个环境自己的失败实验记录。它没有训练出一个通用神经网络，它是在批量生成和维护一批局部启发式/条件反射系统。</p>
+<h2>为什么我觉得这件事值得想</h2>
+<p>和神经网络比，启发式策略最明显的两个优点是样本效率和可解释性。样本效率前面已经很直观：很多时候 Codex 跑几万到几十万步，就能把一个可工作的策略结构搭起来。可解释性也同样重要。Breakout 的每个提升都能落到一个具体机制上：球路卡住、低位高速球、后期偏移收敛、挡板动作延迟。Ant 的每个提升也能落到具体模块上：相位、偏航反馈、谐波、残差规划、热启动。失败的时候可以直接打开代码和视频，看是哪条条件、哪个状态估计、哪个动作延迟出了问题；这和只盯着一条 reward 曲线的体验很不一样。</p>
+<p>神经网络当然有自己的优势，尤其是表达能力、复杂视觉和跨状态泛化。但这次实验让我觉得，很多局部控制任务不一定要全部交给端到端训练。一个可维护的启发式层可以先把“反射动作”和“局部几何”吃掉，再把更难的感知、长期规划、策略选择交给学习系统。这样系统未必更简单，但调试会更像软件工程：有日志、有回放、有消融、有失败来源。</p>
+<p>这里的核心还是维护成本。过去启发式系统难维护，维护者要同时当程序员、实验员、调试员、数据记录员和半个控制工程师。一个 Breakout 策略要记住卡循环、后期逐步收偏移、挡板延迟、视觉检测器、RAM 映射；一个 Ant 策略要记住关节顺序、相位、平衡反馈、展开打分目标、规划预算、失败配置。人很难长期维护这种复杂度，所以最后大家自然会把希望放到端到端训练上。</p>
+<p>编程智能体让这个取舍不太一样了。启发式系统可以变成一种“可执行研究笔记”：状态提取、策略结构、参数扫描、失败诊断、视频证据、样本效率曲线都在同一个代码系统里。策略也不再只是一次性手写的脆弱脚本，它可以变成一个智能体持续维护、局部重构、跨输入迁移的软件产物。</p>
+<h2>对机器人控制的启发</h2>
+<p>这对机器人仍然有想象空间，但边界要说清楚。Ant 是仿真里的移动控制，和真实机器人不是一回事。仿真里可以让 Codex 几万步、几百万步试错，摔了也只是重置；真实世界里每次试错都有时间、硬件磨损、安全、场地复位和传感器漂移成本。所以这套闭环不能直接搬到真机上，让它像在仿真里那样盲跑。</p>
+<p>我更愿意把它看成机器人系统里某一层工具，而不是完整机器人方案。它比较适合的地方，是那些状态能被可靠观测、失败可以安全回滚、局部控制目标清楚的部分：保持身体稳定、某个关节回到安全角度、脚落地以后卸力、快摔倒时先做恢复动作、夹爪接近物体时限力限速。这些更像条件反射，确实可能被程序化维护和回归测试。</p>
+<p>但操作任务会麻烦很多。叠衣服、整理线缆、打开软包装这种任务，难点不只是“机器人关节怎么动”，还有物体本身的状态：布料形变、遮挡、接触历史、摩擦、皱褶、目标形状。这里写启发式策略不是调几个关节相位就能解决的；如果没有好的感知表示、可恢复的动作原语和足够真实的仿真，编程智能体也会在错误的状态变量上写出很脆的规则。</p>
+<p>所以更现实的形态可能是混合系统：仿真和离线数据先用来生成、筛掉候选启发式；真机上只做小步、安全、有护栏的验证；神经网络负责感知、物体状态估计和长程价值；启发式/条件反射系统负责低延迟、安全约束、局部恢复和测试判据；编程智能体负责维护接口、检测、失败处理和回归测试。这样它不是“用启发式手写叠衣服”，而是把一些能被写成程序的局部规律从端到端训练里拆出来。</p>
+<h2>限制</h2>
+<p>样本效率：Atari57 图里的环境步数是策略本地的真实 EnvPool 步数，但不包括 Codex 写代码、读日志、看视频的耗时，也不等同于标准神经网络训练预算。Ant 里的残差模型预测规划还使用本地 MuJoCo 模型内展开，这些计算量也不能和真实 EnvPool 环境步数混在一起。</p>
+<p>RAM 和图像/原生观测也要分开讲。Atari57 聚合结果里 RAM 和原生观测的整体效果没有差得离谱，这是最有意思的现象；但单个 Breakout 里的纯图像 <code>14.5K</code> 是迁移预算，继承了 RAM 阶段已经发现的几何策略。它证明的是结构可以被智能体迁移和重构，不能写成“纯图像从零 14.5K 学到满分”。</p>
+<p>还有些环境不适合这种反应式启发式策略。Montezuma's Revenge 是最典型的反例：这篇实验记录里的状态图搜索能把钥匙距离从 <code>72</code> 推到 <code>28</code>，但奖励仍然是 <code>0</code>。后面我又试了很久，才把它摸到过 <code>400</code> 分左右；那时策略确实已经学会了“爬楼梯、跳过怪物、捡钥匙、开门”这一串动作。问题是这种策略用普通代码分支表达起来很别扭：动作必须对齐到时机，失败后要能恢复，中间状态还要能重新进入计划。这里的限制更像是 <code>policy.py</code> 这种手写状态机的表达能力不够。Montezuma 让我觉得，策略的表现形式本身也很关键：有些环境需要可组合的宏动作、可恢复的搜索状态，甚至需要一个比普通 if-else 更适合长期规划的程序结构。</p>
+<p>所以文章里最强的结论应该是“很有潜力”，还不到“已经替代强化学习基准”。但这个潜力确实很强：一旦输入规整，而且编程智能体能维护复杂启发式策略，样本效率可以进入过去神经网络学习曲线很少触及的量级。这就是我觉得值得写出来的地方。</p>
+<h2>结论</h2>
+<p>这次实验改变了我对启发式策略的看法。以前我会把它归到脆弱、临时拼凑、不可扩展那一类；现在我更愿意把它看成一种可以由编程智能体持续维护的软件系统。它早就不像几条固定规则，更像一组能被测试、可视化、调参、重构、迁移、记录来源的程序化条件反射。</p>
+<p>Atari57 说明，在规整输入下，由编程智能体维护的启发式策略可以用很少环境步数把中位数 HNS 推到接近神经网络基线的区间，而且这是无人工介入批量运行的结果。它也暴露了现在的问题：搜索轨迹很重尾，有些游戏很快找到结构，有些游戏还找不到。Breakout 说明人工介入时单点上限还能更高：先发现几何控制，再维护卡住处理和后期逐步收偏移，最后把 RAM 状态读取迁移成 RGB 检测器。Ant 说明，即使在连续控制里，Codex 也能从简单节律步态出发，自己引入残差模型预测规划，把一个多关节条件反射系统维护到很高分。</p>
+<p>如果继续做下去，我已经不太满足于“再调高某个游戏的分数”。更想看的事情是系统化：给编程智能体一个环境、一个严格实验记录、一个采样预算、一个渲染/诊断接口，让它自己发现、维护和回归测试启发式/条件反射层。过去这件事靠人类维护太累，所以几乎没人认真做；有了编程智能体，它突然变成了一个很合理的研究方向。而且我觉得随着模型智能继续增长，这种迭代时间和成本会降得很快，生成一套启发式策略会比今天还要便宜很多。</p>
+<p>我尤其想看的机器人版本也会更收敛：先从安全、可复现的局部反射和仿真到真机验证工具开始，而不是直接宣称能手写复杂操作任务。真实世界迭代慢，操作任务还牵涉物体状态，所以这条路线更可能先变成训练和测试系统的一部分：底层反射负责安全和局部反馈，高层策略和感知模型负责目标、物体理解和组合。这样每个关节不一定都要从零训练，也不一定每个失败都要靠更大的网络去吸收。</p>
+<h2>致谢</h2>
+<p>感谢 <a href="https://costa.sh/">Costa Huang</a> 和 <a href="https://tairanhe.com/">Tairan He</a> 对这篇文章的反馈。</p>
+<h2>引用</h2>
+<p>如果需要在 LaTeX 里引用这篇文章，可以先用下面这个 BibTeX。正式发布以后，把 <code>url</code> 换成最终链接就行。</p>
+<pre><code class="language-bibtex">@misc{weng2026codex_heuristic_policy,
+  title = {Make Heuristics Great Again：让 Codex 从零构建启发式系统},
+  author = {Weng, Jiayi},
+  year = {2026},
+  month = apr,
+  howpublished = {\url{https://example.com/codex-heuristic-policy}},
+  note = {Blog post}
+}
+</code></pre>
+<p>正文里可以写成：</p>
+<pre><code class="language-latex">\usepackage{url}
+
+... as discussed in \cite{weng2026codex_heuristic_policy}.
+</code></pre>
+    </article>
+  </main>
+  <script>
+(function () {
+  const panes = {
+    en: document.getElementById('article-en'),
+    zh: document.getElementById('article-zh'),
+  };
+  const buttons = {
+    en: document.getElementById('lang-en'),
+    zh: document.getElementById('lang-zh'),
+  };
+  const titles = {
+    en: 'Make Heuristics Great Again: Letting Codex Build Heuristic Systems from Scratch',
+    zh: 'Make Heuristics Great Again：让 Codex 从零构建启发式系统',
+  };
+
+  function setLanguage(lang, updateUrl) {
+    if (!panes[lang]) lang = 'en';
+    for (const key of Object.keys(panes)) {
+      const selected = key === lang;
+      panes[key].hidden = !selected;
+      buttons[key].classList.toggle('active', selected);
+      buttons[key].setAttribute('aria-pressed', selected ? 'true' : 'false');
+    }
+    document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+    document.title = titles[lang];
+    try { window.localStorage.setItem('envpool_heuristics_blog_lang_v2', lang); } catch (_) {}
+    if (updateUrl) {
+      const url = new URL(window.location.href);
+      url.hash = lang === 'zh' ? 'zh' : '';
+      window.history.replaceState(null, '', url);
+    }
+  }
+
+  buttons.en.addEventListener('click', () => setLanguage('en', true));
+  buttons.zh.addEventListener('click', () => setLanguage('zh', true));
+
+  let initial = 'en';
+  if (window.location.hash === '#zh') {
+    initial = 'zh';
+  } else if (window.location.hash === '#en') {
+    initial = 'en';
+  } else {
+    try {
+      const saved = window.localStorage.getItem('envpool_heuristics_blog_lang_v2');
+      if (saved === 'en' || saved === 'zh') initial = saved;
+    } catch (_) {}
+  }
+  setLanguage(initial, false);
+})();
+
+  
+  
+  
+  
+  
+  </script>
+</body>
+</html>
