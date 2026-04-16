@@ -54,12 +54,14 @@ The repository includes the files needed by the article:
 - Pong policy script.
 - Breakout policy, trial logs, sample-efficiency figure, and checkpoint videos.
 - Ant policy, minimal extracted Ant policy, trial logs, sample-efficiency figure, MuJoCo XML, and final-policy video.
-- HalfCheetah sample-efficiency figure.
+- HalfCheetah policy script, iteration log, and sample-efficiency figure.
 - Montezuma exploratory policies, state/archive search scripts, trial logs, summaries, and probe images.
 - Atari57 aggregate and per-game figures, plus the CSV files used to summarize the aggregate/per-game comparisons.
 - The Atari57 batch prompt template used for the unattended Codex CLI runs.
 
 The reproduction commands for individual Breakout and Ant checkpoints are embedded in collapsible sections inside the article. Those commands assume they are run from the repository root.
+
+HalfCheetah's longer iteration history and checked policy commands are in `heuristic_halfcheetah_v5_log.md`; the corresponding script is `heuristic_halfcheetah_v5.py`.
 
 ## Runtime Notes
 
