@@ -7,11 +7,13 @@ This repository contains the public artifacts for:
 The rendered article is:
 
 - `blog_heuristic_policy_atari_mujoco.html`
+- `blog_heuristic_system.html`
 
 The source articles are:
 
 - `blog_heuristic_policy_atari_mujoco.en.md`
 - `blog_heuristic_policy_atari_mujoco.md`
+- `blog_heuristic_system.md`
 
 The HTML page includes an English/Chinese language switcher and uses relative links to the figures, videos, scripts, and CSV files in this repository.
 
@@ -29,6 +31,12 @@ Then open:
 http://127.0.0.1:8000/blog_heuristic_policy_atari_mujoco.html
 ```
 
+The heuristic-system essay is available at:
+
+```text
+http://127.0.0.1:8000/blog_heuristic_system.html
+```
+
 Opening the HTML file directly also works in most browsers, but using `http.server` is closer to how the page is served.
 
 ## Re-render the HTML
@@ -43,9 +51,12 @@ Then run:
 
 ```bash
 python3 render_blog.py
+python3 render_heuristic_system_blog.py
 ```
 
 `render_blog.py` reads the two Markdown files, preserves the existing CSS and language-switching JavaScript from `blog_heuristic_policy_atari_mujoco.html`, and rewrites the HTML page in place.
+
+`render_heuristic_system_blog.py` renders `blog_heuristic_system.md` into its standalone HTML page using the same CSS.
 
 ## Included Artifacts
 
