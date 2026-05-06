@@ -1,4 +1,6 @@
 from pathlib import Path
+import re
+from html import escape, unescape
 
 import markdown
 
@@ -83,10 +85,29 @@ h1, h2, h3 {
 h1 { margin: 0 0 28px; font-size: 46px; max-width: 860px; }
 h2 { margin: 56px 0 18px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 30px; }
 h3 { margin: 34px 0 12px; font-size: 22px; }
+h2, h3 { scroll-margin-top: 78px; }
 p { margin: 18px 0; }
 a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
 ul, ol { padding-left: 1.45em; }
 li { margin: 8px 0; }
+.toc {
+  margin: 24px 0 34px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.toc-title {
+  margin: 0 0 10px;
+  font-weight: 800;
+  color: var(--muted);
+}
+.toc ol { margin: 0; padding: 0; list-style: none; }
+.toc li { margin: 5px 0; line-height: 1.35; }
+.toc a { color: var(--ink); text-decoration: none; }
+.toc a:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+.toc-level-3 { padding-left: 1.25rem; font-size: 0.93em; }
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 0.88em;
@@ -154,9 +175,9 @@ LANG_SCRIPT = """(function () {
   buttons.zh.addEventListener('click', () => setLanguage('zh', true));
 
   let initial = 'en';
-  if (window.location.hash === '#zh') {
+  if (window.location.hash === '#zh' || window.location.hash.startsWith('#zh-')) {
     initial = 'zh';
-  } else if (window.location.hash === '#en') {
+  } else if (window.location.hash === '#en' || window.location.hash.startsWith('#en-')) {
     initial = 'en';
   } else {
     try {
@@ -169,17 +190,88 @@ LANG_SCRIPT = """(function () {
 """
 
 
-def render_markdown(path: Path) -> str:
-    return markdown.markdown(
+HEADING_RE = re.compile(r"<h([23])>(.*?)</h\1>")
+TAG_RE = re.compile(r"<[^>]+>")
+
+
+def heading_text(fragment: str) -> str:
+    return unescape(TAG_RE.sub("", fragment)).strip()
+
+
+def heading_id(text: str, lang: str, index: int, used: set[str]) -> str:
+    match = re.match(r"^((?:\d+|[A-Z])(?:\.\d+)*)(?:\.|\s)", text)
+    if match:
+        base = f"{lang}-section-{match.group(1).lower().replace('.', '-')}"
+    elif "Appendix" in text or text.startswith("附录"):
+        base = f"{lang}-appendix"
+    elif text in {"Disclaimer", "免责声明"}:
+        base = f"{lang}-disclaimer"
+    elif text in {"Acknowledgements", "致谢"}:
+        base = f"{lang}-acknowledgements"
+    elif text in {"Citation", "引用"}:
+        base = f"{lang}-citation"
+    else:
+        base = f"{lang}-section-{index}"
+
+    candidate = base
+    suffix = 2
+    while candidate in used:
+        candidate = f"{base}-{suffix}"
+        suffix += 1
+    used.add(candidate)
+    return candidate
+
+
+def add_heading_ids(article_html: str, lang: str) -> tuple[str, list[tuple[int, str, str]]]:
+    entries: list[tuple[int, str, str]] = []
+    used: set[str] = set()
+
+    def replace(match: re.Match[str]) -> str:
+        level = int(match.group(1))
+        inner = match.group(2)
+        text = heading_text(inner)
+        anchor = heading_id(text, lang, len(entries) + 1, used)
+        entries.append((level, text, anchor))
+        return f'<h{level} id="{anchor}">{inner}</h{level}>'
+
+    return HEADING_RE.sub(replace, article_html), entries
+
+
+def build_toc(entries: list[tuple[int, str, str]], lang: str) -> str:
+    title = "目录" if lang == "zh" else "Contents"
+    items = "\n".join(
+        f'      <li class="toc-level-{level}"><a href="#{anchor}">{escape(text)}</a></li>'
+        for level, text, anchor in entries
+    )
+    return f"""<nav class="toc" aria-label="{escape(title)}">
+    <div class="toc-title">{escape(title)}</div>
+    <ol>
+{items}
+    </ol>
+  </nav>"""
+
+
+def inject_toc(article_html: str, entries: list[tuple[int, str, str]], lang: str) -> str:
+    toc = build_toc(entries, lang)
+    marker = "</blockquote>"
+    if marker in article_html:
+        return article_html.replace(marker, f"{marker}\n{toc}", 1)
+    return f"{toc}\n{article_html}"
+
+
+def render_markdown(path: Path, lang: str) -> str:
+    article_html = markdown.markdown(
         path.read_text(),
         extensions=["extra", "fenced_code", "tables", "sane_lists"],
         output_format="html5",
     )
+    article_html, entries = add_heading_ids(article_html, lang)
+    return inject_toc(article_html, entries, lang)
 
 
 def main() -> None:
-    en_html = render_markdown(EN_MD)
-    zh_html = render_markdown(ZH_MD)
+    en_html = render_markdown(EN_MD, "en")
+    zh_html = render_markdown(ZH_MD, "zh")
     HTML_PATH.write_text(
         f"""<!doctype html>
 <html lang="en">
