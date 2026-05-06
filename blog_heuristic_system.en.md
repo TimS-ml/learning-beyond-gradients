@@ -463,7 +463,7 @@ Thanks to [Costa Huang](https://costa.sh/) and [Tairan He](https://tairanhe.com/
 
 ## Citation
 
-If you need to cite this article in LaTeX, you can start with the BibTeX below. After publication, replace `url` with the final link.
+If you need to cite this article in LaTeX, you can use the BibTeX below.
 
 ```bibtex
 @misc{weng2026heuristic_system,
@@ -471,7 +471,7 @@ If you need to cite this article in LaTeX, you can start with the BibTeX below. 
   author = {Weng, Jiayi},
   year = {2026},
   month = may,
-  howpublished = {\url{https://example.com/heuristic-system}},
+  howpublished = {\url{https://trinkle23897.github.io/heuristic-system/}},
   note = {Blog post}
 }
 ```
