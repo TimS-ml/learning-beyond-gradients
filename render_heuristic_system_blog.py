@@ -1,4 +1,5 @@
 from pathlib import Path
+import argparse
 import re
 from html import escape, unescape
 
@@ -269,7 +270,33 @@ def render_markdown(path: Path, lang: str) -> str:
     return inject_toc(article_html, entries, lang)
 
 
-def main() -> None:
+def render_single_page(md_path: Path, html_path: Path, title: str, lang: str) -> None:
+    article_html = render_markdown(md_path, lang)
+    html_lang = "zh-CN" if lang == "zh" else "en"
+    html_path.write_text(
+        f"""<!doctype html>
+<html lang="{html_lang}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{escape(title)}</title>
+  <style>
+{STYLE}
+  </style>
+</head>
+<body>
+  <main class="page">
+    <article lang="{html_lang}">
+{article_html}
+    </article>
+  </main>
+</body>
+</html>
+"""
+    )
+
+
+def render_bilingual_page() -> None:
     en_html = render_markdown(EN_MD, "en")
     zh_html = render_markdown(ZH_MD, "zh")
     HTML_PATH.write_text(
@@ -305,6 +332,23 @@ def main() -> None:
 </html>
 """
     )
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--single-md", type=Path)
+    parser.add_argument("--single-html", type=Path)
+    parser.add_argument("--title", default=PAGE_TITLE_EN)
+    parser.add_argument("--lang", choices=["en", "zh"], default="zh")
+    args = parser.parse_args()
+
+    if args.single_md or args.single_html:
+        if not args.single_md or not args.single_html:
+            parser.error("--single-md and --single-html must be provided together")
+        render_single_page(args.single_md, args.single_html, args.title, args.lang)
+        return
+
+    render_bilingual_page()
 
 
 if __name__ == "__main__":
