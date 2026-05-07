@@ -38,7 +38,7 @@ jobs:
           from urllib.parse import urlparse
 
           root = Path.cwd()
-          source = root / "blog_heuristic_system.html"
+          source = root / "learning-beyond-gradient.html"
           site = root / "_site"
 
           class LocalRefParser(HTMLParser):
@@ -57,6 +57,7 @@ jobs:
 
           site.mkdir(exist_ok=True)
           shutil.copy2(source, site / "index.html")
+          shutil.copy2(source, site / source.name)
           (site / ".nojekyll").write_text("")
 
           parser = LocalRefParser()
