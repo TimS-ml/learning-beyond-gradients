@@ -237,6 +237,8 @@ At that point, the task had changed shape. The output was no longer just a polic
 
 #### Breakout
 
+Related artifacts: [heuristic_breakout.py], [heuristic_breakout_trials.jsonl], [heuristic_breakout_trials_summary.csv].
+
 Breakout looks like a geometry problem: where is the ball, where is the paddle, and where will the ball land after bouncing off the wall? The hard part comes later. The policy can keep returning the ball, but stop hitting new bricks, trapping the score in a stable loop.
 
 In the first round, Codex confirmed the action space and observation shape, then found the paddle, ball, and brick colors from RGB frames, and used those image labels to scan 128 RAM bytes. Early experiment records looked like this:
@@ -254,6 +256,8 @@ tunnel0_v1                387      43,303                 no tunnel offset
 
 <video controls src="heuristic_breakout_score387_tunnel0_render210x160.mp4" width="360"></video>
 
+Video artifact: [heuristic_breakout_score387_tunnel0_render210x160.mp4].
+
 The first effective mechanism was loop breaking: if there had been no reward for a long time, periodically add an offset to the predicted landing point and knock the ball out of the local cycle. That moved the score from `387` to `507`.
 
 Then another failure mode appeared. For a fast low ball, chasing the ordinary intercept made the paddle over-lead and drift away. Codex added `fast_low_ball_lead_steps=3`, and the score jumped from `507` to `839`.
@@ -262,13 +266,17 @@ The move from `839` to `864` was more like caring for a system that had already 
 
 <video controls src="heuristic_breakout_ci3985ae2_score864_render210x160.mp4" width="360"></video>
 
+Video artifact: [heuristic_breakout_ci3985ae2_score864_render210x160.mp4].
+
 The final RAM default configuration verified at `864 / 864 / 864` across three episodes. Later, Codex migrated the same geometry controller back to pure image input: no RAM, only RGB segmentation for paddle, ball, and brick balance. The image-only version first scored `310`, then `428`, and finally reached `864` for the first time after seven local policy episodes, corresponding to `14,504` local policy environment steps, after lowering the threshold for the late-game "release stuck offset" behavior so it applied throughout.
 
-![Breakout sample efficiency](heuristic_breakout_sample_efficiency.png)
+[![Breakout sample efficiency](heuristic_breakout_sample_efficiency.png)][heuristic_breakout_sample_efficiency.png]
 
 This should not be described as "image-only from scratch to max score in 14.5K steps." The real process was that Codex first discovered the geometry controller, loop breaker, and late-game offset release in the RAM version. Once the structure was stable, it swapped the state-reading layer from RAM to RGB detectors. The `14.5K` number is the transfer budget for the image-only version.
 
 #### Ant and HalfCheetah
+
+Related artifacts: [heuristic_ant.py], [ant_envpool.xml], [heuristic_ant_trials.jsonl], [heuristic_ant_trials_summary.csv], [heuristic_halfcheetah_v5.py], [heuristic_halfcheetah_v5_log.md].
 
 Ant gives a different signal from Breakout. Breakout has intuitive geometry. Ant is continuous control, with 8 joint actions, and its failures are body dynamics rather than "missed the ball."
 
@@ -299,15 +307,19 @@ ant_mpc_default_adaptive_ep1            6146.2       106,300                spee
 
 By the end, the policy had oscillator phase, stance ratio, speed adaptation, roll/pitch/yaw feedback, foot contact, short-horizon model rollouts, residual smoothing, terminal velocity cost, and warm-start plan decay. A human can write one or two of these modules, of course. But handling experiment records, code, videos, and failure directions at the same time, under a short iteration budget, is a different level of difficulty.
 
-![Ant sample efficiency](heuristic_ant_sample_efficiency.png)
+[![Ant sample efficiency](heuristic_ant_sample_efficiency.png)][heuristic_ant_sample_efficiency.png]
 
 <video controls src="heuristic_ant_mpc_default_6146_render480.mp4" width="480"></video>
 
+Video artifact: [heuristic_ant_mpc_default_6146_render480.mp4].
+
 HalfCheetah is another point of evidence in the same family. I reran a five-episode evaluation of `mpc-staged-tree-asym-pd-cpg` with seeds `100..104`; the mean was `11836.7`, with min `11735.0` and max `12041.2`. The policy uses interpretable gait/posture rules and online staged-tree MPC: first form a high-scoring gait through CPG/PD, then use short-horizon model scoring and a staged swing-amplitude schedule to adjust actions.
 
-![HalfCheetah sample efficiency](heuristic_halfcheetah_sample_efficiency.png)
+[![HalfCheetah sample efficiency](heuristic_halfcheetah_sample_efficiency.png)][heuristic_halfcheetah_sample_efficiency.png]
 
 #### Atari57
+
+Related artifacts: [atari57_prompt_template.txt], [atari57_aggregate_curve_steps.csv], [atari57_env_mode_summary.csv], [openrl_atari57_per_game_hns_comparison.csv], [atari57_hns_normalization_inferred.csv].
 
 Breakout and Ant are single-point stories. Atari57 asks what remains when the workflow leaves a few pretty examples. The setup was direct: run the same Codex workflow over the full Atari57 suite, with both `ram` and `native_obs` observation modes for every environment, and three independent repeats for each mode:
 
@@ -330,7 +342,7 @@ The main constraints were:
 
 First look at environment-step curves. HNS means human-normalized score: each game's score is normalized against the human baseline before comparison. In the fully unattended batch, `native_obs` Atari median HNS reached `0.32` around `1M` steps, and `ram` reached `0.26`, clearly above the early PPO2 / CleanRL EnvPool PPO curves in the figure. Around `9.7M` steps, `native_obs` reached `0.81` and `ram` reached `0.59`. In the same comparison, the OpenRL Benchmark PPO2 / CleanRL EnvPool PPO median HNS curves are roughly `0.88 / 0.92` at `10M` steps.
 
-![Atari57 sample efficiency vs OpenRL Benchmark](atari57_openrl_sample_efficiency_context.png)
+[![Atari57 sample efficiency vs OpenRL Benchmark](atari57_openrl_sample_efficiency_context.png)][atari57_openrl_sample_efficiency_context.png]
 
 This comparison is about environment interaction efficiency. It does not convert the cost of the coding agent reading logs, writing code, and watching videos into the total compute budget. The signal is still concrete: a very rough coding-agent batch workflow, with no human inspection of intermediate results, already pushes the Atari57 median into the neighborhood of these baselines.
 
@@ -338,17 +350,21 @@ If we aggregate by taking the best input mode for each game at the end, Codex me
 
 Aggregate curves compress differences into one median, so I also looked at per-game HNS. On Breakout, Krull, DoubleDunk, Boxing, and DemonAttack, both heuristics and Deep RL baselines reach scores well above the human baseline. On Asterix, Jamesbond, Centipede, Bowling, Skiing, and Tennis, heuristics are relatively strong. On Atlantis, VideoPinball, UpNDown, Assault, RoadRunner, and StarGunner, PPO is clearly much stronger.
 
-![Atari57 per-game HNS comparison](atari57_per_game_hns_comparison.png)
+[![Atari57 per-game HNS comparison](atari57_per_game_hns_comparison.png)][atari57_per_game_hns_comparison.png]
 
 The most interesting part of Atari57 is that the source of sample efficiency changes. Traditional neural-network Atari learning has to relearn representation, credit assignment, and action meaning from high-dimensional inputs in every environment. Codex instead decomposes each environment into small maintainable program systems: aiming and dodging in shooters, bounce prediction in catching games, position rules in avoidance games, wrapper details, and each environment's own failed-experiment records.
 
 #### Montezuma
+
+Related artifacts: [heuristic_montezuma.py], [heuristic_montezuma_state_graph_search.py], [heuristic_montezuma_400_policy.py], [heuristic_montezuma_400_macros.json], [heuristic_montezuma_400_metadata.json].
 
 Some environments are not a good fit for ordinary reactive heuristic policies. Montezuma's Revenge is the typical example.
 
 In an earlier standalone Montezuma search, state-graph search moved the key distance from `72` to `28`, but reward stayed at `0`. Later, in the Atari57 native-image batch, one unattended Codex run reached `400.0` points: the repaired best replay was `repair_replay_r1_t19734`, seed `10001`, using `1769` environment steps. It is essentially an open-loop route made of `86` macro-actions.
 
 <video controls src="montezuma_400_render_seed10001_h264.mp4" width="360"></video>
+
+Video artifact: [montezuma_400_render_seed10001_h264.mp4].
 
 Montezuma exposes an expressivity problem. A normal `policy.py` state machine has trouble representing this kind of route: actions must align with timing, failures need recovery, and intermediate states need ways to re-enter the plan. Some environments need composable macro-actions, recoverable search state, and perhaps a program structure better suited to long-horizon planning than ordinary `if else`.
 
@@ -360,6 +376,8 @@ The commands below assume they are run from this article's directory, with depen
 
 #### Pong 21
 
+Reproduction entrypoint: [heuristic_pong.py].
+
 ```bash
 python heuristic_pong.py \
   --policy ram \
@@ -370,6 +388,8 @@ python heuristic_pong.py \
 Expected output should include `episode=0 score=21.0` and `mean=21.000`.
 
 #### Breakout 864
+
+Reproduction entrypoint: [heuristic_breakout.py].
 
 ```bash
 rm -f /tmp/repro_breakout_864.jsonl /tmp/repro_breakout_864.csv
@@ -401,6 +421,8 @@ Expected output should include `score=864.0` and `mean=864.000`.
 
 #### Ant Default MPC Policy
 
+Reproduction entrypoints: [heuristic_ant.py], [ant_envpool.xml].
+
 ```bash
 rm -f /tmp/repro_ant_6146_eval5.jsonl /tmp/repro_ant_6146_eval5.csv
 python heuristic_ant.py \
@@ -418,6 +440,8 @@ My local rerun produced `mean=6005.521`, `min=5776.805`, and `max=6146.208`.
 
 #### HalfCheetah Staged-Tree MPC
 
+Reproduction entrypoint: [heuristic_halfcheetah_v5.py].
+
 ```bash
 python heuristic_halfcheetah_v5.py \
   --policy mpc-staged-tree-asym-pd-cpg \
@@ -429,9 +453,41 @@ My local rerun produced a five-episode mean of `11836.693`.
 
 #### Montezuma 400-Point Replay
 
+Reproduction entrypoint: [heuristic_montezuma_400_policy.py].
+
 ```bash
 python heuristic_montezuma_400_policy.py \
   --metadata-out /tmp/repro_montezuma_400.json
 ```
 
 Expected output should include `"score": 400.0` and `"env_steps": 1769`. This is a boundary case; it should not be read as a general Montezuma policy.
+
+[heuristic_breakout.py]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_breakout.py
+[heuristic_breakout_trials.jsonl]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_breakout_trials.jsonl
+[heuristic_breakout_trials_summary.csv]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_breakout_trials_summary.csv
+[heuristic_breakout_score387_tunnel0_render210x160.mp4]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_breakout_score387_tunnel0_render210x160.mp4
+[heuristic_breakout_ci3985ae2_score864_render210x160.mp4]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_breakout_ci3985ae2_score864_render210x160.mp4
+[heuristic_breakout_sample_efficiency.png]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_breakout_sample_efficiency.png
+[heuristic_ant.py]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_ant.py
+[ant_envpool.xml]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/ant_envpool.xml
+[heuristic_ant_trials.jsonl]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_ant_trials.jsonl
+[heuristic_ant_trials_summary.csv]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_ant_trials_summary.csv
+[heuristic_ant_sample_efficiency.png]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_ant_sample_efficiency.png
+[heuristic_ant_mpc_default_6146_render480.mp4]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_ant_mpc_default_6146_render480.mp4
+[heuristic_halfcheetah_v5.py]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_halfcheetah_v5.py
+[heuristic_halfcheetah_v5_log.md]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_halfcheetah_v5_log.md
+[heuristic_halfcheetah_sample_efficiency.png]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_halfcheetah_sample_efficiency.png
+[atari57_prompt_template.txt]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/atari57_prompt_template.txt
+[atari57_aggregate_curve_steps.csv]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/atari57_aggregate_curve_steps.csv
+[atari57_env_mode_summary.csv]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/atari57_env_mode_summary.csv
+[openrl_atari57_per_game_hns_comparison.csv]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/openrl_atari57_per_game_hns_comparison.csv
+[atari57_hns_normalization_inferred.csv]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/atari57_hns_normalization_inferred.csv
+[atari57_openrl_sample_efficiency_context.png]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/atari57_openrl_sample_efficiency_context.png
+[atari57_per_game_hns_comparison.png]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/atari57_per_game_hns_comparison.png
+[heuristic_montezuma.py]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_montezuma.py
+[heuristic_montezuma_state_graph_search.py]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_montezuma_state_graph_search.py
+[heuristic_montezuma_400_policy.py]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_montezuma_400_policy.py
+[heuristic_montezuma_400_macros.json]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_montezuma_400_macros.json
+[heuristic_montezuma_400_metadata.json]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_montezuma_400_metadata.json
+[montezuma_400_render_seed10001_h264.mp4]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/montezuma_400_render_seed10001_h264.mp4
+[heuristic_pong.py]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_pong.py
