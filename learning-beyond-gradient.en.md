@@ -462,6 +462,10 @@ python heuristic_montezuma_400_policy.py \
 
 Expected output should include `"score": 400.0` and `"env_steps": 1769`. This is a boundary case; it should not be read as a general Montezuma policy.
 
+## Comments
+
+If you want to comment, ask questions, or add context, please open an issue in the repo: [https://github.com/Trinkle23897/learning-beyond-gradients/issues](https://github.com/Trinkle23897/learning-beyond-gradients/issues).
+
 [heuristic_breakout.py]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_breakout.py
 [heuristic_breakout_trials.jsonl]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_breakout_trials.jsonl
 [heuristic_breakout_trials_summary.csv]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_breakout_trials_summary.csv
