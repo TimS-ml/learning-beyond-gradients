@@ -260,9 +260,54 @@ Video artifact: [heuristic_breakout_score387_tunnel0_render210x160.mp4].
 
 The first effective mechanism was loop breaking: if there had been no reward for a long time, periodically add an offset to the predicted landing point and knock the ball out of the local cycle. That moved the score from `387` to `507`.
 
+```python
+if steps_since_reward >= stuck_trigger_steps:
+    phase = stuck_offset_index % 4
+    if phase == 0:
+        offset = +stuck_offset_px
+    elif phase == 1:
+        offset = -stuck_offset_px
+    elif phase == 2:
+        offset = +0.5 * stuck_offset_px
+    else:
+        offset = -0.5 * stuck_offset_px
+else:
+    offset = 0.0
+```
+
+<video controls src="heuristic_breakout_score507_stuckbreaker_render210x160.mp4" width="360"></video>
+
+Video artifact: [heuristic_breakout_score507_stuckbreaker_render210x160.mp4].
+
 Then another failure mode appeared. For a fast low ball, chasing the ordinary intercept made the paddle over-lead and drift away. Codex added `fast_low_ball_lead_steps=3`, and the score jumped from `507` to `839`.
 
+```python
+if vy > 0.1 and ball_y <= paddle_y:
+    steps_to_paddle = max((paddle_y - ball_y) / vy, 0.0)
+    intercept_x = reflect_position(ball_x + vx * steps_to_paddle)
+    target_x = intercept_x + stuck_offset
+elif vy >= fast_ball_min_vy:
+    target_x = ball_x + fast_low_ball_lead_steps * vx
+else:
+    target_x = ball_x + chase_lead_steps * vx
+```
+
+<video controls src="heuristic_breakout_score839_fastlead_render210x160.mp4" width="360"></video>
+
+Video artifact: [heuristic_breakout_score839_fastlead_render210x160.mp4].
+
 The move from `839` to `864` was more like caring for a system that had already become complex. Codex tried deadbands, serve offsets, stuck offsets, brick-balance bias, and lookahead steps. Many directions did nothing. The final useful change was a late-game condition: after the first wall of bricks, the stuck offset only applies when the ball is still far from the paddle; when the ball is close, the offset is gradually released, otherwise the last few bricks pull the paddle away. It also added a tiny paddle-drift compensation for the one-step delay between action and paddle position.
+
+```python
+if score >= 432 and stuck_release_horizon_steps > 0:
+    release_ratio = clip(steps_to_paddle / stuck_release_horizon_steps, 0.0, 1.0)
+    offset *= release_ratio
+
+if score >= 432 and ball_y >= 170 and last_action == RIGHT:
+    control_paddle_x = paddle_x + 2.0
+elif score >= 432 and ball_y >= 170 and last_action == LEFT:
+    control_paddle_x = paddle_x - 2.0
+```
 
 <video controls src="heuristic_breakout_ci3985ae2_score864_render210x160.mp4" width="360"></video>
 
@@ -284,11 +329,50 @@ I did not specify "use CPG" or "use MPC" at the beginning. The constraints were 
 
 The first version was a four-leg phase oscillator: left and right legs in opposite phase, hip and ankle joints tracking sinusoidal target angles, with actions produced by a PD controller. It was not elegant, but it was already much stronger than random: the mean score over five random seeds was `2291`.
 
+```python
+leg_phase = warp_phase(phase + LEG_PHASE, stance_duty(vx))
+stance = leg_phase < pi
+
+hip_wave = HIP_BIAS + stance_or_swing_scale * (
+    HIP_AMP * sin(leg_phase)
+    + HIP_H2_AMP * sin(2 * leg_phase + HIP_H2_PHASE)
+    + HIP_H3_AMP * sin(3 * leg_phase + HIP_H3_PHASE)
+)
+
+action[0::2] = KP * (
+    HIP_SIGN * hip_wave
+    + HEADING_AXIS * (YAW_GAIN * yaw + YAW_RATE_GAIN * yaw_rate)
+    - q[0::2]
+)
+action[1::2] = KP * (ANKLE_SIGN * (ankle_wave + balance) - q[1::2])
+```
+
 The early iterations looked like tuning a real controller: add yaw feedback to reach `2718`, retune phase speed, hip/ankle amplitude, and yaw angular-velocity gain to reach `3025`, then add second/third harmonics to reach `3162`. Codex also tried broad parameter search, but it did not reliably beat the current rhythmic policy, so it stopped expanding the search budget and moved to a different representation.
 
 The jump came from residual MPC. Roughly speaking, MPC is "think a short distance into the future while walking." Keep the rhythmic gait as the base reflex; at each real environment step, sample dozens of small residual action sequences inside a local MuJoCo model, score them, execute only the first residual action, then reobserve and replan on the next step, using the unfinished previous plan as a warm start.
 
 This way, the policy does not plan all 8 joints from scratch at every step. It starts with a stable gait, then uses short-horizon model planning to correct it.
+
+```python
+base = cpg_action(phase, q, dq, roll, pitch, yaw, rates, contacts, vx)
+
+best_plan = previous_plan.copy()
+best_obj = rollout_objective(obs, best_plan)
+for _ in range(CANDIDATES - 1):
+    residuals = clip(
+        best_plan + rng.normal(0.0, MPC_SIGMA, size=(HORIZON, 8)),
+        -MPC_CLIP,
+        MPC_CLIP,
+    )
+    residuals[1:] = 0.6 * residuals[1:] + 0.4 * residuals[:-1]
+    obj = rollout_objective(obs, residuals)
+    if obj > best_obj:
+        best_obj = obj
+        best_plan = residuals
+
+plan[:-1] = PLAN_DECAY * best_plan[1:]
+return clip(base + best_plan[0], -1.0, 1.0)
+```
 
 ```text
 trial_name                               score_mean   cumulative_env_steps   note
@@ -329,16 +413,38 @@ Breakout and Ant are single-point stories. Atari57 asks what remains when the wo
 
 No human gave step-by-step hints during this batch. Each agent received the same template and different `ENV_ID / OBS_MODE / REPEAT_INDEX`, then ran until it stopped. Each run had to write `policy.py`, `trials.jsonl`, `summary.csv`, `sample_efficiency.png`, and `README.md`.
 
-The main constraints were:
+The full prompt is in [atari57_prompt_template.txt]. The core summary was:
+
+<details markdown="1">
+<summary>Atari57 batch prompt summary</summary>
 
 ```text
+Goal: for one EnvPool Atari environment and one OBS_MODE, design and iterate a handwritten heuristic policy.
+
+Run style: do not ask for confirmation and do not report intermediate progress; continue until a stop rule is met, then summarize.
+
+Hard constraints:
 - Do not train a neural network.
 - Do not read environment source, tests, ROM details, or hidden state.
 - In native_obs mode, only use obs returned by reset/step.
 - In ram mode, info["ram"] is allowed.
 - Atari initialization parameters are fixed, including frame_skip=1, reward_clip=False, sticky action=0.
 - All actual environment steps used for probe/debug/trial must count toward cumulative_env_steps.
+
+Output files:
+- policy.py: the current best heuristic, simplified where possible.
+- trials.jsonl: score, environment steps, config, and notes for every trial.
+- summary.csv: aggregate from trials.
+- sample_efficiency.png: score curve by environment step and episode.
+- README.md: best score, reproduction command, failed directions, and stop reason.
+
+Stop rules:
+- Atari frame budget = 20,000,000.
+- Do not stop before budget just because the score has plateaued or exceeded a reference.
+- After every new best score, simplify the code and verify that the score does not regress before keeping it.
 ```
+
+</details>
 
 First look at environment-step curves. HNS means human-normalized score: each game's score is normalized against the human baseline before comparison. In the fully unattended batch, `native_obs` Atari median HNS reached `0.32` around `1M` steps, and `ram` reached `0.26`, clearly above the early PPO2 / CleanRL EnvPool PPO curves in the figure. Around `9.7M` steps, `native_obs` reached `0.81` and `ram` reached `0.59`. In the same comparison, the OpenRL Benchmark PPO2 / CleanRL EnvPool PPO median HNS curves are roughly `0.88 / 0.92` at `10M` steps.
 
@@ -386,6 +492,101 @@ python heuristic_pong.py \
 ```
 
 Expected output should include `episode=0 score=21.0` and `mean=21.000`.
+
+#### Breakout Intermediate Nodes
+
+These commands reproduce the `387 -> 507 -> 839` intermediate nodes discussed in the appendix. They are not the final policy; they pin down the mechanisms that made each jump happen.
+
+<details markdown="1">
+<summary>Reproduce 387: return the ball, but do not break the loop</summary>
+
+```bash
+rm -f /tmp/repro_breakout_387.jsonl /tmp/repro_breakout_387.csv
+python heuristic_breakout.py \
+  --policy ram \
+  --episodes 1 \
+  --seed 0 \
+  --max-steps 27000 \
+  --deadband 3 \
+  --chase-lead-steps 6 \
+  --tunnel-offset 0 \
+  --launch-offset 24 \
+  --fast-ball-min-vy 1000000000 \
+  --stuck-trigger-steps 1000000000 \
+  --stuck-switch-steps 0 \
+  --stuck-offset 0 \
+  --stuck-release-horizon-steps 0 \
+  --brick-balance-bias-min-score 1000000000 \
+  --late-game-paddle-lag-px 0 \
+  --trial-name repro_breakout_387 \
+  --log-path /tmp/repro_breakout_387.jsonl \
+  --summary-path /tmp/repro_breakout_387.csv
+```
+
+Expected output should include `score=387.0` and `mean=387.000`.
+
+</details>
+
+<details markdown="1">
+<summary>Reproduce 507: add stuck-loop perturbation</summary>
+
+```bash
+rm -f /tmp/repro_breakout_507.jsonl /tmp/repro_breakout_507.csv
+python heuristic_breakout.py \
+  --policy ram \
+  --episodes 1 \
+  --seed 0 \
+  --max-steps 27000 \
+  --deadband 3 \
+  --chase-lead-steps 6 \
+  --tunnel-offset 0 \
+  --launch-offset 24 \
+  --fast-ball-min-vy 1000000000 \
+  --stuck-trigger-steps 1024 \
+  --stuck-switch-steps 256 \
+  --stuck-offset 12 \
+  --stuck-release-horizon-steps 0 \
+  --brick-balance-bias-min-score 1000000000 \
+  --late-game-paddle-lag-px 0 \
+  --trial-name repro_breakout_507 \
+  --log-path /tmp/repro_breakout_507.jsonl \
+  --summary-path /tmp/repro_breakout_507.csv
+```
+
+Expected output should include `score=507.0` and `mean=507.000`.
+
+</details>
+
+<details markdown="1">
+<summary>Reproduce 839: handle fast low balls</summary>
+
+```bash
+rm -f /tmp/repro_breakout_839.jsonl /tmp/repro_breakout_839.csv
+python heuristic_breakout.py \
+  --policy ram \
+  --episodes 1 \
+  --seed 0 \
+  --max-steps 27000 \
+  --deadband 3 \
+  --chase-lead-steps 6 \
+  --tunnel-offset 0 \
+  --launch-offset 24 \
+  --fast-ball-min-vy 3 \
+  --fast-low-ball-lead-steps 3 \
+  --stuck-trigger-steps 1024 \
+  --stuck-switch-steps 256 \
+  --stuck-offset 12 \
+  --stuck-release-horizon-steps 0 \
+  --brick-balance-bias-min-score 1000000000 \
+  --late-game-paddle-lag-px 0 \
+  --trial-name repro_breakout_839 \
+  --log-path /tmp/repro_breakout_839.jsonl \
+  --summary-path /tmp/repro_breakout_839.csv
+```
+
+Expected output should include `score=839.0` and `mean=839.000`.
+
+</details>
 
 #### Breakout 864
 
@@ -470,6 +671,8 @@ If you want to comment, ask questions, or add context, please open an issue in t
 [heuristic_breakout_trials.jsonl]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_breakout_trials.jsonl
 [heuristic_breakout_trials_summary.csv]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_breakout_trials_summary.csv
 [heuristic_breakout_score387_tunnel0_render210x160.mp4]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_breakout_score387_tunnel0_render210x160.mp4
+[heuristic_breakout_score507_stuckbreaker_render210x160.mp4]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_breakout_score507_stuckbreaker_render210x160.mp4
+[heuristic_breakout_score839_fastlead_render210x160.mp4]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_breakout_score839_fastlead_render210x160.mp4
 [heuristic_breakout_ci3985ae2_score864_render210x160.mp4]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_breakout_ci3985ae2_score864_render210x160.mp4
 [heuristic_breakout_sample_efficiency.png]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_breakout_sample_efficiency.png
 [heuristic_ant.py]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/heuristic_ant.py
