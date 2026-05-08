@@ -192,7 +192,7 @@ This article represents only my personal views. It does not represent any compan
 
 ## Acknowledgements
 
-Thanks to [Costa Huang](https://costa.sh/) and [Tairan He](https://tairanhe.com/) for feedback.
+Thanks to [Costa Huang](https://costa.sh/), [Tairan He](https://tairanhe.com/), and [Hao Sheng](https://hsheng.org) for feedback.
 
 ## Citation
 
