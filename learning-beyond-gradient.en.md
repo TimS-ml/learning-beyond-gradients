@@ -24,9 +24,9 @@ and use them to drive environments into informative states?
 I tried using Codex (`gpt-5.4`) to write a rule-based version, with no neural network at all. After a few rounds, the results were far more surprising than I expected:
 
 - In Atari Breakout, a programmatic policy went from `387 -> 507 -> 839 -> 864`, eventually reaching the theoretical maximum score.
-- In MuJoCo Ant, a pure Python policy first learned a rhythmic gait, then added short-horizon model planning, and finally reached `6000+`, in the range of common RL SOTA results.
-- In MuJoCo HalfCheetah, interpretable gait/posture rules plus online planning reached a five-episode evaluation mean of `11836.7`, also in the range of RL SOTA.
-- Across Atari57, I ran `57 games x 2 observation modes x 3 repeats = 342` coding-agent search trajectories. The results were uneven, but under a fixed environment-step budget, median HNS around `1M` environment steps was already far above PPO-style RL baselines at the same step count.
+- In MuJoCo Ant, a pure Python policy first learned a rhythmic gait, then added short-horizon model planning, and finally reached `6000+`, in the range of common Deep RL results.
+- In MuJoCo HalfCheetah, interpretable gait/posture rules plus online planning reached a five-episode evaluation mean of `11836.7`, also in the range of common Deep RL results.
+- Across Atari57, I ran `57 games x 2 observation modes x 3 repeats = 342` coding-agent search trajectories. The results were uneven, but under a fixed environment-step budget, median HNS around `1M` environment steps was already far above PPO-style Deep RL baselines at the same step count.
 
 The raw scores were surprising enough. But the more interesting part was: Codex was not training a neural network. It was maintaining a software system that could keep growing.
 
@@ -39,7 +39,7 @@ That is when I felt a new concept was needed. The thing being updated was no lon
 After more iteration with Codex, I started calling this process **Heuristic Learning (HL)**:
 
 - HL is built out of program code.
-- Like RL, it has a loop of state, action, feedback, and update; unlike RL, the object being updated is software structure rather than (neural network) parameters.
+- Like Deep RL as commonly practiced today, it has a loop of state, action, feedback, and update; unlike that setup, the object being updated is software structure rather than neural-network parameters.
 - Its feedback is consumed by a coding agent, and can come from environment reward, test cases, logs, videos, replays, or human feedback.
 - Its updates do not use backpropagation. The coding agent directly edits policies, state detectors, tests, configuration, or memory.
 - HL is the learning and update process. The object maintained by HL over time can be called a **Heuristic System (HS)**.
@@ -53,7 +53,7 @@ As a table:
 | State | Usually explicit observations | Usually explicit variables, detectors, caches, and other readable representations |
 | Action | Produced by a neural network forward pass | Produced by executing code logic |
 | Feedback | Mainly fixed reward | Provided through coding-agent context: tests, environment feedback, logs, and replays all count |
-| Update | Gradient propagation through an RL algorithm | Direct code edits by a coding agent |
+| Update | Gradient-based updates to neural-network parameters in a Deep RL algorithm | Direct code edits by a coding agent |
 | Memory | On-policy methods basically have none; off-policy methods have replay buffers | Can explicitly store trials, summaries, failure reasons, replays, and version diffs |
 
 Heuristic Learning has several useful properties compared with Deep RL:
@@ -336,7 +336,7 @@ This comparison is about environment interaction efficiency. It does not convert
 
 If we aggregate by taking the best input mode for each game at the end, Codex median HNS is `0.83`, OpenAI Baselines PPO2 is `0.80`, and CleanRL EnvPool PPO is `0.98`. If we relax further to best single run, Codex median HNS is `1.18`. This does not replace a strict training-curve comparison, but it shows more directly what level the unattended search eventually covered.
 
-Aggregate curves compress differences into one median, so I also looked at per-game HNS. On Breakout, Krull, DoubleDunk, Boxing, and DemonAttack, both heuristics and RL baselines reach scores well above the human baseline. On Asterix, Jamesbond, Centipede, Bowling, Skiing, and Tennis, heuristics are relatively strong. On Atlantis, VideoPinball, UpNDown, Assault, RoadRunner, and StarGunner, PPO is clearly much stronger.
+Aggregate curves compress differences into one median, so I also looked at per-game HNS. On Breakout, Krull, DoubleDunk, Boxing, and DemonAttack, both heuristics and Deep RL baselines reach scores well above the human baseline. On Asterix, Jamesbond, Centipede, Bowling, Skiing, and Tennis, heuristics are relatively strong. On Atlantis, VideoPinball, UpNDown, Assault, RoadRunner, and StarGunner, PPO is clearly much stronger.
 
 ![Atari57 per-game HNS comparison](atari57_per_game_hns_comparison.png)
 
