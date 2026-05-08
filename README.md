@@ -21,7 +21,7 @@ The article is bilingual. The rendered HTML defaults to English and includes a C
 - `learning-beyond-gradient.html`: rendered bilingual HTML.
 - `render_learning_beyond_gradient.py`: local renderer.
 
-Older draft blog files are kept only as local history/context; the deployed article is `learning-beyond-gradient.html`.
+The deployed article is `learning-beyond-gradient.html`.
 
 ## Local Preview
 
