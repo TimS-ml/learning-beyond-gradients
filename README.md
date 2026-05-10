@@ -71,7 +71,7 @@ The repository includes the files needed to inspect and reproduce the article's 
 
 - `atari/pong/`: Pong policy script.
 - `atari/breakout/`: Breakout policy, trial summaries, sample-efficiency figure, and checkpoint videos.
-- `atari/montezuma/`: Montezuma exploratory policies, state/archive search scripts, summaries, probe images, plus the recovered Atari57 400-point native-image policy and replay video.
+- `atari/montezuma/`: Montezuma exploratory policies, state/archive search scripts, summaries, probe images, and replay artifacts.
 - `atari/atari57/`: Atari57 aggregate/per-game figures, CSV summaries, and the batch prompt template used for unattended Codex CLI runs.
 - `mujoco/ant/`: Ant policy, minimal extracted Ant policy, trial summaries, MuJoCo XML, sample-efficiency figure, and final-policy video.
 - `mujoco/halfcheetah/`: HalfCheetah policy script, iteration log, and sample-efficiency figure.
@@ -87,32 +87,6 @@ For Ant, `ant_envpool.xml` stays next to `heuristic_ant.py` under `mujoco/ant/`.
 
 ```bash
 --mujoco-xml-path mujoco/ant/ant_envpool.xml
-```
-
-## Montezuma 400-Point Replay
-
-The Atari57 batch found one `MontezumaRevenge-v5` native-image run that reached `400.0` points. The route is packaged as a standalone open-loop replay:
-
-```bash
-python3 atari/montezuma/heuristic_montezuma_400_policy.py \
-  --metadata-out atari/montezuma/heuristic_montezuma_400_replay_result.json
-```
-
-Expected result:
-
-```text
-score = 400.0
-env_steps = 1769
-seed = 10001
-```
-
-To regenerate the video:
-
-```bash
-python3 atari/montezuma/heuristic_montezuma_400_policy.py \
-  --record-mp4 atari/montezuma/montezuma_400_render_seed10001.mp4 \
-  --frame0-png atari/montezuma/montezuma_400_render_seed10001_frame0.png \
-  --metadata-out atari/montezuma/montezuma_400_render_seed10001_meta.json
 ```
 
 ## Citation
