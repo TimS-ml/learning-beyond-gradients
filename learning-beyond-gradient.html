@@ -266,6 +266,7 @@ and use them to drive environments into informative states?
 <li>In Atari Breakout, a programmatic policy went from <code>387 -&gt; 507 -&gt; 839 -&gt; 864</code>, eventually reaching the theoretical maximum score.</li>
 <li>In MuJoCo Ant, a pure Python policy first learned a rhythmic gait, then added short-horizon model planning, and finally reached <code>6000+</code>, in the range of common Deep RL results.</li>
 <li>In MuJoCo HalfCheetah, interpretable gait/posture rules plus online planning reached a five-episode evaluation mean of <code>11836.7</code>, also in the range of common Deep RL results.</li>
+<li>In VizDoom, a first-person visual-control task, cv2/NumPy screen CV without neural-network training reached <code>mean=557.0</code> and <code>min=440.0</code> over 10 seeds on D3 Battle.</li>
 <li>Across Atari57, I ran <code>57 games x 2 observation modes x 3 repeats = 342</code> coding-agent search trajectories. The results were uneven, but under a fixed environment-step budget, median HNS around <code>1M</code> environment steps was already far above PPO-style Deep RL baselines at the same step count.</li>
 </ul>
 <p>The raw scores were surprising enough. But the more interesting part was: Codex was not training a neural network. It was maintaining a software system that could keep growing.</p>
@@ -757,6 +758,37 @@ python mujoco/ant/heuristic_ant.py \
   --eval-seed 100
 </code></pre>
 <p>My local rerun produced a five-episode mean of <code>11836.693</code>.</p>
+<h4>VizDoom D3 Battle CV Policy</h4>
+<p>Related artifacts: <a href="https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/vizdoom/heuristic_vizdoom_d3_cv.py">heuristic_vizdoom_d3_cv.py</a>, <a href="https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/vizdoom/record_vizdoom_d3_cv.py">record_vizdoom_d3_cv.py</a>, <a href="https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/vizdoom/d3_cv_best_10seed_render_35fps.mp4">d3_cv_best_10seed_render_35fps.mp4</a>.</p>
+<p>This heuristic is not a memorized route through the map. It decomposes Battle into three closed loops: kill monsters when visible, seek supplies when health or ammo is low, and explore quickly when no target is visible. On the screen side it uses cv2/NumPy color thresholds and connected components to extract enemy candidates, ammo/health item candidates, and dark-region ratios for walls and doorways. From EnvPool info it only uses public game variables such as <code>HEALTH</code>, <code>AMMO2</code>, <code>HITCOUNT</code>, <code>DAMAGECOUNT</code>, and <code>KILLCOUNT</code>. The action side is a state machine: turn, track, and fire when an enemy is visible; walk to supplies when their priority is high enough; otherwise spread out with <code>SPEED + MOVE_FORWARD</code>, reverse or turn when frame-difference signals show it is stuck, and give dark openings higher priority as exploration targets.</p>
+<p>The iteration loop was to run 10 seeds in parallel, then record a 35fps 10-grid video directly through <code>render()</code> and inspect the failure mode. Early versions tried map access, object info, and seed-specific branches; those were removed. Most gains came from watching the videos and fixing concrete behavior: long stretches without seeing monsters, over-turning while chasing, staying glued to walls, fighting with low ammo, or misclassifying pickups as enemies. The final version does not read the WAD map, object coordinates, or seed-specific routes; it keeps only screen CV plus public variables.</p>
+<video controls src="vizdoom/d3_cv_best_10seed_render_35fps.mp4" width="480"></video>
+
+<p>Video artifact: <a href="https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/vizdoom/d3_cv_best_10seed_render_35fps.mp4">d3_cv_best_10seed_render_35fps.mp4</a>.</p>
+<p>Reproduction entrypoint: <a href="https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/vizdoom/heuristic_vizdoom_d3_cv.py">heuristic_vizdoom_d3_cv.py</a>.</p>
+<pre><code class="language-bash">python vizdoom/heuristic_vizdoom_d3_cv.py
+</code></pre>
+<p>My local rerun produced <code>mean=557.0</code> and <code>min=440.0</code>; the 10-seed rewards were <code>[545, 475, 480, 440, 690, 500, 600, 595, 530, 715]</code>.</p>
+<p>To regenerate the 35fps video:</p>
+<pre><code class="language-bash">python vizdoom/record_vizdoom_d3_cv.py
+</code></pre>
+<h4>VizDoom D1 Basic CV Policy</h4>
+<p>Related artifacts: <a href="https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/vizdoom/heuristic_vizdoom_d1_cv.py">heuristic_vizdoom_d1_cv.py</a>, <a href="https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/vizdoom/d1_cv_10seed_render_35fps.mp4">d1_cv_10seed_render_35fps.mp4</a>.</p>
+<p>D1 is narrower: stay alive while health decays, then collect the medikit once it has positive reward value. During iteration I first used a stronger object/info policy to validate the behavioral ceiling, which reached about <code>1.01</code> over 10 seeds. That dependency was not cleanly reproducible, so the final version removes it and keeps only pip EnvPool, screen pixels from <code>render()</code>, and the public <code>HEALTH</code> variable. The pure-CV policy finds the medikit with brightness thresholding, morphological close/dilate, and connected components, then uses the bounding-box center to choose left, right, or forward. If health is still high and the medikit is already close, it stages in place and waits until the pickup is valuable.</p>
+<p>The last tuning loop was mostly about two thresholds: <code>PICKUP_HEALTH</code> decides when to collect, while <code>STAGE_AREA</code> and the medikit bbox decide how close is close enough to wait. Moving too early wastes reward; waiting too long causes wall stalls or deaths. The final pure-EnvPool CV version is below the object-info ceiling, but it is cleanly reproducible and reaches <code>mean=0.9441</code>, <code>min=0.2900</code> over 10 seeds.</p>
+<video controls src="vizdoom/d1_cv_10seed_render_35fps.mp4" width="480"></video>
+
+<p>Video artifact: <a href="https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/vizdoom/d1_cv_10seed_render_35fps.mp4">d1_cv_10seed_render_35fps.mp4</a>.</p>
+<p>Reproduction entrypoint: <a href="https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/vizdoom/heuristic_vizdoom_d1_cv.py">heuristic_vizdoom_d1_cv.py</a>.</p>
+<pre><code class="language-bash">python vizdoom/heuristic_vizdoom_d1_cv.py --episodes 10 --seed 0
+</code></pre>
+<p>My local rerun produced <code>mean=0.9440999741666019</code> and <code>min=0.28999998047947884</code>. This version depends only on pip EnvPool; it does not need the <code>vizdoom</code> Python package or any locally compiled extension.</p>
+<p>To regenerate the 35fps video:</p>
+<pre><code class="language-bash">python vizdoom/heuristic_vizdoom_d1_cv.py \
+  --episodes 10 \
+  --seed 0 \
+  --record-mp4 vizdoom/d1_cv_10seed_render_35fps.mp4
+</code></pre>
 <h4>Montezuma 400-Point Replay</h4>
 <p>Reproduction entrypoint: <a href="https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/atari/montezuma/heuristic_montezuma_400_policy.py">heuristic_montezuma_400_policy.py</a>.</p>
 <pre><code class="language-bash">python atari/montezuma/heuristic_montezuma_400_policy.py \
@@ -804,6 +836,7 @@ python mujoco/ant/heuristic_ant.py \
 <li>一个打砖块游戏 Atari Breakout，策略从 <code>387 -&gt; 507 -&gt; 839 -&gt; 864</code>，最后打到理论最高分；</li>
 <li>一个仿真四足机器人关节控制任务 MuJoCo Ant，纯 Python 程序策略先学会节律步态，再接上短视窗模型规划，最后上了 <code>6000+</code> 分，进入常见 Deep RL 结果的量级；</li>
 <li>一个仿真机器人跑步任务 MuJoCo HalfCheetah，靠可解释的步态/姿态规则和在线规划，迭代到 5 局复测均值 <code>11836.7</code>，也进入了常见 Deep RL 结果的量级；</li>
+<li>一个第一人称视觉控制任务 VizDoom，只用 cv2/NumPy 搓屏幕 CV、不训练神经网络，D3 Battle 的 10 seeds 结果也能到 <code>mean=557.0</code>、<code>min=440.0</code>；</li>
 <li>一整套 Atari 57 个游戏，一共跑了 57 个游戏 x 2 种输入 x 3 次运行 = 342 条 coding-agent 搜索轨迹，表现有好有坏；但在固定环境交互步数下，中位数 HNS 游戏得分在 <code>1M</code> 环境步附近已经远高于 PPO 这类 Deep RL 算法的曲线。</li>
 </ul>
 <p>这些结果第一次见到十分震撼，更让我在意的是：codex 没有训练神经网络，它在维护一套还能继续生长的软件系统。</p>
@@ -1295,6 +1328,37 @@ python mujoco/ant/heuristic_ant.py \
   --eval-seed 100
 </code></pre>
 <p>我本地重跑时 5 局均值是 <code>11836.693</code>。</p>
+<h4>VizDoom D3 Battle CV 策略</h4>
+<p>相关 artifact：<a href="https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/vizdoom/heuristic_vizdoom_d3_cv.py">heuristic_vizdoom_d3_cv.py</a>、<a href="https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/vizdoom/record_vizdoom_d3_cv.py">record_vizdoom_d3_cv.py</a>、<a href="https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/vizdoom/d3_cv_best_10seed_render_35fps.mp4">d3_cv_best_10seed_render_35fps.mp4</a>。</p>
+<p>这个 heuristic 的实现不是“背地图”，而是把 Battle 拆成三个闭环：看见怪就杀、低血/低弹时找补给、长时间没目标时高速探索。屏幕侧用 cv2/NumPy 做颜色阈值和连通域，分别提取 enemy candidate、ammo/health item candidate、墙面/洞口的暗区比例；EnvPool info 只用公开 game variables，比如 <code>HEALTH</code>、<code>AMMO2</code>、<code>HITCOUNT</code>、<code>DAMAGECOUNT</code>、<code>KILLCOUNT</code>。动作侧则是一个状态机：敌人在画面里就转向、压枪、射击；补给优先级够高就走过去；没目标时按 <code>SPEED + MOVE_FORWARD</code> 扩散探索，画面差分显示卡住或撞墙时就反向/转身，黑乎乎的开口会提高继续冲进去的优先级。</p>
+<p>迭代方式基本是每次并行跑 10 个 seed，再直接用 <code>render()</code> 录 35fps 的 10-grid 视频看失败类型。早期版本试过地图、object info 和 seed 特判，后面都删掉了；主要优化来自看视频后修“长时间没遇怪”“追怪时转过头”“贴墙不脱身”“弹药低还恋战”“把 pickup 当怪打”这些具体行为。最后保留下来的版本不读 WAD 地图、不读 object 坐标、不做 seed 特判，只靠屏幕 CV 和公开变量。</p>
+<video controls src="vizdoom/d3_cv_best_10seed_render_35fps.mp4" width="480"></video>
+
+<p>视频 artifact：<a href="https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/vizdoom/d3_cv_best_10seed_render_35fps.mp4">d3_cv_best_10seed_render_35fps.mp4</a>。</p>
+<p>复现入口：<a href="https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/vizdoom/heuristic_vizdoom_d3_cv.py">heuristic_vizdoom_d3_cv.py</a>。</p>
+<pre><code class="language-bash">python vizdoom/heuristic_vizdoom_d3_cv.py
+</code></pre>
+<p>我本地重跑时是 <code>mean=557.0</code>、<code>min=440.0</code>，10 个 seed 的奖励是 <code>[545, 475, 480, 440, 690, 500, 600, 595, 530, 715]</code>。</p>
+<p>要重新生成 35fps 视频：</p>
+<pre><code class="language-bash">python vizdoom/record_vizdoom_d3_cv.py
+</code></pre>
+<h4>VizDoom D1 Basic CV 策略</h4>
+<p>相关 artifact：<a href="https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/vizdoom/heuristic_vizdoom_d1_cv.py">heuristic_vizdoom_d1_cv.py</a>、<a href="https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/vizdoom/d1_cv_10seed_render_35fps.mp4">d1_cv_10seed_render_35fps.mp4</a>。</p>
+<p>D1 的目标更窄：活着等掉血，然后在血包有正 reward 时吃掉它。迭代时我先用更强的 object/info 版本验证了这个行为上限，10 seeds 可以接近 <code>1.01</code>；但这个版本依赖不可复现的信息暴露，所以最后删掉，只保留 pip EnvPool、<code>render()</code> 屏幕像素和公开的 <code>HEALTH</code>。纯 CV 版用亮度阈值、形态学 close/dilate 和连通域找 medikit，用 bbox 中心决定左转/右转/前进；当血量还高且血包已经很近时，它会原地 staging，等血掉到阈值附近再走进去。</p>
+<p>这一轮主要是在失败视频里调两个东西：<code>PICKUP_HEALTH</code> 决定什么时候吃，<code>STAGE_AREA</code>/bbox 大小决定离血包多近开始等。太早冲会浪费 reward，太晚等会卡墙或死亡；最后的纯 EnvPool CV 版本比 info 上限低一些，但复现干净，10 seeds 是 <code>mean=0.9441</code>、<code>min=0.2900</code>。</p>
+<video controls src="vizdoom/d1_cv_10seed_render_35fps.mp4" width="480"></video>
+
+<p>视频 artifact：<a href="https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/vizdoom/d1_cv_10seed_render_35fps.mp4">d1_cv_10seed_render_35fps.mp4</a>。</p>
+<p>复现入口：<a href="https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/vizdoom/heuristic_vizdoom_d1_cv.py">heuristic_vizdoom_d1_cv.py</a>。</p>
+<pre><code class="language-bash">python vizdoom/heuristic_vizdoom_d1_cv.py --episodes 10 --seed 0
+</code></pre>
+<p>我本地重跑时是 <code>mean=0.9440999741666019</code>、<code>min=0.28999998047947884</code>。这个版本只依赖 pip 的 EnvPool；不需要 <code>vizdoom</code> Python 包，也不需要任何本地编译扩展。</p>
+<p>要重新生成 35fps 视频：</p>
+<pre><code class="language-bash">python vizdoom/heuristic_vizdoom_d1_cv.py \
+  --episodes 10 \
+  --seed 0 \
+  --record-mp4 vizdoom/d1_cv_10seed_render_35fps.mp4
+</code></pre>
 <h4>Montezuma 400 分回放</h4>
 <p>复现入口：<a href="https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/atari/montezuma/heuristic_montezuma_400_policy.py">heuristic_montezuma_400_policy.py</a>。</p>
 <pre><code class="language-bash">python atari/montezuma/heuristic_montezuma_400_policy.py \
