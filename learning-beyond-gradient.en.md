@@ -717,7 +717,7 @@ Expected output should include `"score": 400.0` and `"env_steps": 1769`. This is
 
 ## Comments
 
-If you want to comment, ask questions, or add context, please open an issue in the repo: [https://github.com/Trinkle23897/learning-beyond-gradients/issues](https://github.com/Trinkle23897/learning-beyond-gradients/issues).
+<div class="github-issue-comments" data-lang="en" data-repo="Trinkle23897/learning-beyond-gradients" data-issue-url="https://github.com/Trinkle23897/learning-beyond-gradients/issues/new?title=Comment%3A%20Learning%20Beyond%20Gradients"></div>
 
 [heuristic_breakout.py]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/atari/breakout/heuristic_breakout.py
 [heuristic_breakout_trials.jsonl]: https://github.com/Trinkle23897/learning-beyond-gradients/blob/main/atari/breakout/heuristic_breakout_trials.jsonl

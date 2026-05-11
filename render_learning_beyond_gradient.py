@@ -197,12 +197,225 @@ blockquote { margin: 24px 0; padding: 2px 20px; border-left: 4px solid var(--acc
 table { border-collapse: collapse; width: 100%; margin: 24px 0; font-size: 0.94em; }
 th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; }
 th { background: var(--table-head-bg); }
+.github-issue-comments {
+  margin: 28px 0 12px;
+  padding: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.github-comments-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px;
+  padding: 0 0 13px;
+  border-bottom: 2px solid var(--line);
+  margin-bottom: 16px;
+}
+.github-comments-head > div:first-child {
+  min-width: 0;
+}
+.github-comments-count {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.05em;
+  font-weight: 800;
+  line-height: 1.25;
+}
+.github-comments-subtitle,
+.github-comments-powered {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 0.82em;
+  line-height: 1.45;
+}
+.github-comments-controls {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: 8px;
+  align-items: center;
+  min-width: max-content;
+}
+.github-comments-new {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: var(--active-ink);
+  background: var(--active-bg);
+  font-size: 0.8em;
+  font-weight: 700;
+  line-height: 1.1;
+  text-decoration: none;
+}
+.github-comments-new:hover {
+  color: var(--active-ink);
+  opacity: 0.9;
+  text-decoration: none;
+}
+.github-comments-status,
+.github-comments-empty {
+  margin: 14px 0 0;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.9em;
+}
+.github-comments-list {
+  display: grid;
+  gap: 0;
+  margin-top: 4px;
+}
+.github-comment {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 13px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+.github-comment-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--toc-bg);
+  object-fit: cover;
+  margin: 1px 0 0;
+}
+.github-comment-main {
+  min-width: 0;
+}
+.github-comment-byline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  align-items: baseline;
+  color: var(--muted);
+  font-size: 0.82em;
+  line-height: 1.35;
+}
+.github-comment-author {
+  color: var(--ink);
+  font-weight: 800;
+  text-decoration: none;
+}
+.github-comment-author:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.github-comment-title {
+  margin: 5px 0 0;
+  font-size: 1.02em;
+  line-height: 1.35;
+}
+.github-comment-title a {
+  color: var(--ink);
+  text-decoration: none;
+}
+.github-comment-title a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.github-comment-body {
+  margin: 9px 0 0;
+  color: var(--ink);
+  font-size: 0.92em;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.github-comment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 10px;
+  font-size: 0.8em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.github-comment-actions a,
+.github-comment-actions span {
+  color: var(--muted);
+  text-decoration: none;
+}
+.github-comment-actions a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.github-replies {
+  display: grid;
+  gap: 0;
+  margin-top: 14px;
+  padding-left: 14px;
+  border-left: 2px solid var(--line);
+}
+.github-reply {
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  gap: 10px;
+  padding: 12px 0 0;
+}
+.github-reply-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--toc-bg);
+  object-fit: cover;
+  margin: 2px 0 0;
+}
+.github-reply-main {
+  min-width: 0;
+}
+.github-reply-byline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  align-items: baseline;
+  color: var(--muted);
+  font-size: 0.8em;
+  line-height: 1.35;
+}
+.github-reply-author {
+  color: var(--ink);
+  font-weight: 800;
+  text-decoration: none;
+}
+.github-reply-author:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.github-reply-body {
+  margin: 6px 0 0;
+  color: var(--ink);
+  font-size: 0.88em;
+  line-height: 1.52;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.github-replies-error {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.82em;
+}
 @media (max-width: 720px) {
   body { font-size: 16px; }
   .page { padding: 32px 18px 64px; box-shadow: none; }
   .lang-switch-wrap { margin: 0 0 18px; top: 0; }
   .lang-switch button { min-width: 66px; padding: 7px 10px; }
   .theme-toggle { min-width: 62px; padding: 7px 10px; }
+  .github-comments-head { display: block; }
+  .github-comments-controls { justify-content: flex-start; margin-top: 10px; min-width: 0; }
+  .github-comments-new { margin-top: 0; }
+  .github-comment { grid-template-columns: 34px 1fr; gap: 10px; }
+  .github-comment-avatar { width: 34px; height: 34px; }
+  .github-replies { padding-left: 10px; }
+  .github-reply { grid-template-columns: 26px 1fr; gap: 8px; }
+  .github-reply-avatar { width: 26px; height: 26px; }
   h1 { font-size: 34px; }
   h2 { font-size: 24px; }
 }
@@ -313,6 +526,272 @@ LANG_SCRIPT = """(function () {
       if (!savedTheme()) setTheme(preferredTheme(), false);
     });
   }
+})();
+"""
+
+
+COMMENTS_SCRIPT = """(function () {
+  const containers = Array.from(document.querySelectorAll('.github-issue-comments'));
+  if (!containers.length || !window.fetch) return;
+
+  const copy = {
+    en: {
+      title: 'Comments',
+      subtitle: 'Each GitHub issue is one comment, loaded live in your browser.',
+      newComment: 'Join discussion',
+      loading: 'Loading comments from GitHub...',
+      empty: 'No issues yet. Open one to start the thread.',
+      error: 'Could not load GitHub issues right now.',
+      reply: 'Reply',
+      viewThread: 'View thread',
+      replyLink: 'permalink',
+      powered: 'Powered by GitHub Issues',
+      replies: 'replies',
+      repliesError: 'Could not load replies.',
+    },
+    zh: {
+      title: '评论',
+      subtitle: '每个 GitHub issue 是一条评论，页面打开时动态加载。',
+      newComment: '参与讨论',
+      loading: '正在从 GitHub 加载评论...',
+      empty: '还没有 issue。开一个就会出现在这里。',
+      error: '现在没能加载 GitHub Issues。',
+      reply: '回复',
+      viewThread: '查看讨论',
+      replyLink: '链接',
+      powered: '由 GitHub Issues 驱动',
+      replies: '条回复',
+      repliesError: '没能加载这条下面的回复。',
+    },
+  };
+  const issueCommentRequests = new Map();
+
+  function t(lang) {
+    return copy[lang === 'zh' ? 'zh' : 'en'];
+  }
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
+  function linkify(text) {
+    return escapeHtml(text).replace(
+      /(https?:\\/\\/[^\\s<]+)/g,
+      '<a href="$1">$1</a>'
+    );
+  }
+
+  function formatDate(value, lang) {
+    try {
+      return new Intl.DateTimeFormat(lang === 'zh' ? 'zh-CN' : 'en', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      }).format(new Date(value));
+    } catch (_) {
+      return value ? value.slice(0, 10) : '';
+    }
+  }
+
+  function issueBody(issue) {
+    const body = (issue.body || '').trim();
+    if (!body) return '';
+    return body.length > 900 ? `${body.slice(0, 900).trim()}...` : body;
+  }
+
+  function threadBody(comment) {
+    const body = (comment.body || '').trim();
+    if (!body) return '';
+    return body.length > 700 ? `${body.slice(0, 700).trim()}...` : body;
+  }
+
+  function countLabel(count, lang) {
+    if (count === null) return t(lang).title;
+    if (lang === 'zh') return `${count} 条评论`;
+    return count === 1 ? '1 Comment' : `${count} Comments`;
+  }
+
+  function headerHtml(container, lang, count) {
+    const repo = container.dataset.repo || 'Trinkle23897/learning-beyond-gradients';
+    const issueUrl = container.dataset.issueUrl || `https://github.com/${repo}/issues/new?title=Comment%3A%20Learning%20Beyond%20Gradients`;
+    const text = t(lang);
+    return `<div class="github-comments-head">
+      <div>
+        <p class="github-comments-count">${escapeHtml(countLabel(count, lang))}</p>
+        <p class="github-comments-subtitle">${escapeHtml(text.subtitle)}</p>
+        <p class="github-comments-powered">${escapeHtml(text.powered)}</p>
+      </div>
+      <div class="github-comments-controls">
+        <a class="github-comments-new" href="${escapeHtml(issueUrl)}">${escapeHtml(text.newComment)}</a>
+      </div>
+    </div>`;
+  }
+
+  function sortIssues(issues) {
+    return [...issues].sort((a, b) => {
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }
+
+  function totalCommentCount(issues) {
+    return issues.reduce((count, issue) => {
+      const replies = Array.isArray(issue.threadComments) ? issue.threadComments.length : 0;
+      return count + 1 + replies;
+    }, 0);
+  }
+
+  function replyCountLabel(count, lang) {
+    const text = t(lang);
+    if (lang === 'zh') return `${count}${text.replies}`;
+    return count === 1 ? '1 reply' : `${count} ${text.replies}`;
+  }
+
+  function renderReply(comment, lang) {
+    const text = t(lang);
+    const user = comment.user && comment.user.login ? comment.user.login : 'github-user';
+    const avatarUrl = comment.user && comment.user.avatar_url ? comment.user.avatar_url : '';
+    const userUrl = comment.user && comment.user.html_url ? comment.user.html_url : comment.html_url;
+    const body = threadBody(comment);
+    return `<div class="github-reply">
+      ${avatarUrl ? `<img class="github-reply-avatar" src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(user)} avatar" loading="lazy">` : '<div class="github-reply-avatar" aria-hidden="true"></div>'}
+      <div class="github-reply-main">
+        <div class="github-reply-byline">
+          <a class="github-reply-author" href="${escapeHtml(userUrl)}">${escapeHtml(user)}</a>
+          <span>${escapeHtml(formatDate(comment.created_at, lang))}</span>
+          <a href="${escapeHtml(comment.html_url)}">${escapeHtml(text.replyLink)}</a>
+        </div>
+        ${body ? `<div class="github-reply-body">${linkify(body)}</div>` : ''}
+      </div>
+    </div>`;
+  }
+
+  function renderReplies(issue, lang) {
+    const text = t(lang);
+    const replies = Array.isArray(issue.threadComments)
+      ? [...issue.threadComments].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+      : [];
+    if (issue.threadCommentsError) {
+      return `<div class="github-replies-error">${escapeHtml(text.repliesError)}</div>`;
+    }
+    if (!replies.length) return '';
+    return `<div class="github-replies">
+      ${replies.map((comment) => renderReply(comment, lang)).join('')}
+    </div>`;
+  }
+
+  function renderIssue(issue, lang) {
+    const text = t(lang);
+    const user = issue.user && issue.user.login ? issue.user.login : 'github-user';
+    const body = issueBody(issue);
+    const replies = Number(issue.comments) || 0;
+    const avatarUrl = issue.user && issue.user.avatar_url ? issue.user.avatar_url : '';
+    const userUrl = issue.user && issue.user.html_url ? issue.user.html_url : issue.html_url;
+    return `<article class="github-comment">
+      ${avatarUrl ? `<img class="github-comment-avatar" src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(user)} avatar" loading="lazy">` : '<div class="github-comment-avatar" aria-hidden="true"></div>'}
+      <div class="github-comment-main">
+        <div class="github-comment-byline">
+          <a class="github-comment-author" href="${escapeHtml(userUrl)}">${escapeHtml(user)}</a>
+          <span>#${issue.number}</span>
+          <span>${escapeHtml(formatDate(issue.created_at, lang))}</span>
+        </div>
+        <h3 class="github-comment-title"><a href="${escapeHtml(issue.html_url)}">${escapeHtml(issue.title)}</a></h3>
+        ${body ? `<div class="github-comment-body">${linkify(body)}</div>` : ''}
+        <div class="github-comment-actions">
+          <a href="${escapeHtml(issue.html_url)}#new_comment_field">${escapeHtml(text.reply)}</a>
+          <a href="${escapeHtml(issue.html_url)}">${escapeHtml(text.viewThread)}</a>
+          ${replies ? `<span>${escapeHtml(replyCountLabel(replies, lang))}</span>` : ''}
+        </div>
+        ${renderReplies(issue, lang)}
+      </div>
+    </article>`;
+  }
+
+  function render(container, issues) {
+    const lang = container.dataset.lang || document.documentElement.lang || 'en';
+    const text = t(lang);
+    const comments = issues.filter((issue) => !issue.pull_request);
+    if (!comments.length) {
+      container.innerHTML = `${headerHtml(container, lang, 0)}<p class="github-comments-empty">${escapeHtml(text.empty)}</p>`;
+      return;
+    }
+    const sortedComments = sortIssues(comments);
+    container.innerHTML = `${headerHtml(container, lang, totalCommentCount(comments))}
+      <div class="github-comments-list">
+        ${sortedComments.map((issue) => renderIssue(issue, lang)).join('')}
+      </div>`;
+  }
+
+  const requests = new Map();
+  function fetchJson(url) {
+    return fetch(url, {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    }).then((response) => {
+      if (!response.ok) throw new Error(`GitHub API ${response.status}`);
+      return response.json();
+    });
+  }
+
+  function issueCommentsUrl(issue) {
+    const url = new URL(issue.comments_url);
+    url.searchParams.set('per_page', '20');
+    return url.toString();
+  }
+
+  function fetchIssueComments(issue) {
+    if (!Number(issue.comments) || !issue.comments_url || issue.pull_request) {
+      return Promise.resolve({ ...issue, threadComments: [] });
+    }
+    const url = issueCommentsUrl(issue);
+    if (!issueCommentRequests.has(url)) {
+      issueCommentRequests.set(url, fetchJson(url));
+    }
+    return issueCommentRequests.get(url)
+      .then((comments) => ({
+        ...issue,
+        threadComments: Array.isArray(comments) ? comments : [],
+      }))
+      .catch(() => ({
+        ...issue,
+        threadComments: [],
+        threadCommentsError: true,
+      }));
+  }
+
+  function attachThreadComments(issues) {
+    return Promise.all(issues.map((issue) => fetchIssueComments(issue)));
+  }
+
+  function load(container) {
+    const repo = container.dataset.repo || 'Trinkle23897/learning-beyond-gradients';
+    const lang = container.dataset.lang || document.documentElement.lang || 'en';
+    const text = t(lang);
+    container.innerHTML = `${headerHtml(container, lang, null)}<p class="github-comments-status">${escapeHtml(text.loading)}</p>`;
+    if (!requests.has(repo)) {
+      const url = `https://api.github.com/repos/${repo}/issues?state=all&sort=created&direction=desc&per_page=30`;
+      requests.set(repo, fetchJson(url).then((issues) => {
+        const parsedIssues = Array.isArray(issues) ? issues : [];
+        return attachThreadComments(parsedIssues);
+      }));
+    }
+    requests.get(repo)
+      .then((issues) => {
+        const parsedIssues = Array.isArray(issues) ? issues : [];
+        render(container, parsedIssues);
+      })
+      .catch(() => {
+        container.innerHTML = `${headerHtml(container, lang, null)}<p class="github-comments-status">${escapeHtml(text.error)}</p>`;
+      });
+  }
+
+  containers.forEach(load);
 })();
 """
 
@@ -482,6 +961,9 @@ def render_single_page(md_path: Path, html_path: Path, title: str, lang: str) ->
 {article_html}
     </article>
   </main>
+  <script>
+{COMMENTS_SCRIPT}
+  </script>
 </body>
 </html>
 """
@@ -526,6 +1008,7 @@ def render_bilingual_page() -> None:
   </main>
   <script>
 {LANG_SCRIPT}
+{COMMENTS_SCRIPT}
   </script>
 </body>
 </html>
