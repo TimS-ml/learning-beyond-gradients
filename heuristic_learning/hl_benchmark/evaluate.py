@@ -25,6 +25,8 @@ DEFAULT_POLICIES = ["random", "initial", "improved"]
 
 
 def _load_config(config_json: str | None) -> dict[str, Any] | None:
+    """Parse ``--config-json`` either as an inline JSON string or a file path."""
+
     if not config_json:
         return None
     maybe_path = Path(config_json)
@@ -34,6 +36,13 @@ def _load_config(config_json: str | None) -> dict[str, Any] | None:
 
 
 def _score_stats(scores: list[float]) -> dict[str, float | None]:
+    """Return the fixed ``score_stats`` shape expected by the ledger schema.
+
+    All-``None`` values are used for the empty-scores case so the ledger row
+    still validates against ``REQUIRED_FIELDS`` when a run failed before any
+    episode completed.
+    """
+
     if not scores:
         return {"mean": None, "std": None, "median": None, "min": None, "max": None}
     values = np.asarray(scores, dtype=float)
@@ -79,8 +88,15 @@ def evaluate_policy(
         env = make_env(env_id)
         try:
             policy = make_policy(env_id, policy_name, action_space=env.action_space, config=config)
+            # `policy.config()` echoes the exact dataclass fields the policy
+            # was built with, plus its structural flag; the ledger stores this
+            # so any row is replayable from just its config.
             policy_config = policy.config()
             for seed in seeds:
+                # Seed the action space (for RandomPolicy) and the policy's
+                # internal RNGs before every episode. `env.reset(seed=seed)`
+                # also seeds the env; the two together make the rollout
+                # deterministic for this env/policy pair.
                 if hasattr(env.action_space, "seed"):
                     env.action_space.seed(seed)
                 policy.reset(seed)
@@ -98,8 +114,13 @@ def evaluate_policy(
                 environment_steps += steps
                 per_episode.append({"seed": seed, "score": score, "steps": steps})
         finally:
+            # Close the env even if the policy raised: exit the outer try with
+            # a live env handle would leak Gymnasium/Box2D resources.
             env.close()
     except Exception as exc:
+        # A failed run still appends a ledger row. The row's `pass_fail="fail"`
+        # and `failure_analysis` fields make the failure visible in reports
+        # instead of being silently dropped.
         pass_fail = "fail"
         error = f"{type(exc).__name__}: {exc}"
         failure_analysis = error

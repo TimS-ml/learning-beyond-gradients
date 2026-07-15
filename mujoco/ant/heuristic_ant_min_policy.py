@@ -182,6 +182,21 @@ def _cpg_action(
 
 
 class AntMPCPolicy:
+    """Minimal embeddable Ant-v5 policy: CPG base + residual random-shooting MPC.
+
+    This is the same policy as `heuristic_ant.py --policy mpc`, stripped of
+    the CLI, JSONL trial log, and CEM path. It owns:
+
+    - A private `mujoco.MjModel` / `MjData` pair for online rollouts
+      (`self.model`, `self.data`).
+    - A phase scalar advanced by `_dphi(vx)` every real env step.
+    - A warm-started residual plan `self.plan` of shape `(HORIZON, 8)`.
+    - A deterministic `numpy.random.Generator` seeded by `MPC_SEED`.
+
+    Exposes only `reset()` and `act(obs) -> action` so it can be imported by
+    another project (`from heuristic_ant_min_policy import AntMPCPolicy`).
+    """
+
     def __init__(self) -> None:
         self.model = mujoco.MjModel.from_xml_path(str(XML_PATH))
         self.data = mujoco.MjData(self.model)
@@ -192,6 +207,8 @@ class AntMPCPolicy:
     def reset(self) -> None:
         self.phase = 0.0
         self.plan.fill(0.0)
+        # Reset the RNG to the fixed seed so two `reset()` calls from the
+        # same policy produce identical action trajectories.
         self.rng = np.random.default_rng(MPC_SEED)
 
     def act(self, obs: np.ndarray) -> np.ndarray:

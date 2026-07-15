@@ -12,10 +12,22 @@ from .base import BasePolicy
 
 @dataclass(frozen=True)
 class CartPoleConfig:
+    """Gains for the pole-balancing sign controller.
+
+    The first four gains form the initial linear-combination controller
+    (``pole_angle + pole_velocity + cart_position + cart_velocity`` weighted
+    by their gains). The ``center_*`` block is only used when the policy is
+    constructed with ``structural=True`` and forms the improved policy's
+    "recenter the cart when the pole is already safe" guard.
+    """
+
     pole_angle_gain: float = 1.0
     pole_velocity_gain: float = 0.35
     cart_position_gain: float = 0.05
     cart_velocity_gain: float = 0.02
+    # Structural guard: activated only when pole angle and angular velocity
+    # are both inside the ``center_*_window`` bands and the cart is farther
+    # than ``center_position_trigger`` from the track center.
     center_position_gain: float = 1.0
     center_velocity_gain: float = 0.60
     center_angle_window: float = 0.03

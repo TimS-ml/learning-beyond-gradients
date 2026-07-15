@@ -1,3 +1,22 @@
+"""Solve VizDoom D3 Battle with a closed-loop CV+state-variable policy.
+
+Reward is `1 * DAMAGECOUNT + 10 * KILLCOUNT`. The policy uses only:
+
+- The rendered screen (via cv2 masks over three colour channels).
+- The public EnvPool game variables `HEALTH`, `AMMO2`, `HITCOUNT`,
+  `DAMAGECOUNT`, `KILLCOUNT`.
+
+It does not read the WAD map, object coordinates, labels, or seed-specific
+routes. Every behaviour (combat, kiting, item seeking, wall escape, stuck
+detection, navigation) is a branch inside `choose()` that switches based on
+the current CV detections, the running `State`, and the large `BASE_P`
+config dict.
+
+The 10-seed reward vector produced by this policy is
+`[545, 475, 480, 440, 690, 500, 600, 595, 530, 715]` (`mean=557.0`,
+`min=440.0`), matching the number quoted in the blog appendix.
+"""
+
 import os
 import tempfile
 
@@ -7,11 +26,26 @@ import envpool.vizdoom.registration  # noqa: F401
 import numpy as np
 from envpool.registration import make_gym
 
+# VizDoom's D3 Battle scenario ships as a fixed WAD + .cfg pair inside the
+# EnvPool package. We only need to swap in a custom `available_buttons` block
+# (below) so the policy can access the finer-grained turn/strafe primitives.
 BASE = os.path.join(os.path.dirname(v.__file__), "maps")
 ORIG_CFG = open(os.path.join(BASE, "D3_battle.cfg")).read()
 
 
 def cfgfile(width=640, height=480, fmt="CRCGCB"):
+    """Write a temporary VizDoom .cfg with our resolution/buttons overrides.
+
+    Overrides applied:
+
+    - `screen_resolution` -> requested `width x height`.
+    - `screen_format` -> requested `fmt` (default CRCGCB, three per-channel
+      chroma planes; the CV masks read these as int16).
+    - `render_weapon = false`, `render_crosshair = false` -> keeps the
+      screen bottom clear of HUD graphics that would confuse the CV.
+    - `available_buttons` -> the finer combat/movement set the policy needs.
+    """
+
     cfg = ORIG_CFG.replace("screen_resolution = RES_160X120", f"screen_resolution = RES_{width}X{height}")
     cfg = cfg.replace("screen_format = GRAY8", f"screen_format = {fmt}")
     cfg = cfg.replace("render_weapon = true", "render_weapon = false")
@@ -309,6 +343,28 @@ def close_wall_turn(im, p):
 
 
 class State:
+    """Per-env recurrent state carried across every `choose()` call.
+
+    Grouped by concern:
+
+    - Combat: `damage`, `hit`, `health` (previous values from info, used to
+      detect deltas), `lock` (aiming lock countdown), `bad` (number of bad
+      shots taken), `dx` (last horizontal offset to an enemy), `panic`.
+    - Movement / anti-stuck: `turn` (current turn direction sign), `prev`
+      (previous frame, for bump/stuck detection), `stuck`, `bump`, `bounce`
+      / `bounce_i` / `bounce_turn` (random-bounce escape state).
+    - Navigation: `arc_turn`, `bored_after`, `bored_turn` (adapted from
+      defaults by the `adapt_arc` branch), `close_area`, `close_h`,
+      `nav_i` / `nav_until` / `nav_turn` (telegraph nav state), and
+      `wall_escape` / `wall_escape_turn` (close-wall escape state).
+    - Novelty: `recent_views` (rolling list of hashed low-res frames used to
+      detect that the agent has visited the same visual state recently).
+    - Open-space commitment: `open_commit` / `open_turn` (frames left to
+      commit to an "open hallway" direction before re-planning).
+    - Progress tracking: `last_progress` (last step index where reward
+      changed; every "bored" branch is gated on how long ago this was).
+    """
+
     def __init__(self, p=None):
         self.damage = 0
         self.hit = 0
@@ -343,6 +399,14 @@ class State:
 
 
 def action(attack=0, speed=0, fw=0, back=0, right=0, left=0, turn=0.0, turn180=0):
+    """Build an EnvPool D3 combined-action vector in `available_buttons` order.
+
+    Argument order maps to the buttons defined in `cfgfile()`:
+    ATTACK, SPEED, MOVE_FORWARD, MOVE_BACKWARD, MOVE_RIGHT, MOVE_LEFT,
+    TURN180, TURN_LEFT_RIGHT_DELTA. `turn` is a signed continuous value; the
+    other flags are 0/1 button presses.
+    """
+
     return np.asarray([attack, speed, fw, back, right, left, turn180, turn], dtype=np.float64)
 
 

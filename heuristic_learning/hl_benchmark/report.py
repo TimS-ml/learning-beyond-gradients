@@ -16,6 +16,8 @@ DEFAULT_REPORT_PATH = Path(__file__).resolve().parents[1] / "results" / "final_r
 
 
 def _read_summary(path: Path) -> list[dict[str, str]]:
+    """Read the derived ``summary.csv`` and return one dict per row."""
+
     if not path.exists():
         return []
     with path.open("r", encoding="utf-8", newline="") as handle:
@@ -42,6 +44,22 @@ def _float_or_none(value: str) -> float | None:
 
 
 def _representative_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Collapse the ledger to one row per ``(environment, policy, split)``.
+
+    Selection rules encode "which row should the human-facing report show":
+
+    - ``rl-*`` rows keep the best-mean run across all recorded RL attempts;
+      this avoids reporting an undertrained early PPO run when a later one
+      converged.
+    - ``tuned`` on ``dev`` prefers more episodes and higher mean; scalar
+      search often reruns the winning config with more episodes.
+    - Everything else keeps the latest row (later structural edits override
+      earlier ones by convention).
+
+    The append-only ledger is unchanged; this only affects the summary tables
+    printed in the report.
+    """
+
     representative: dict[tuple[str, str, str], dict[str, str]] = {}
     for row in rows:
         key = (row["environment"], row["policy_version"], row["split"])
@@ -217,6 +235,13 @@ def _best_row(
     policy_versions: set[str],
     split: str,
 ) -> dict[str, str] | None:
+    """Return the highest-mean passing row for a given env/policy set/split.
+
+    Used by every comparison table so all "best of family" claims use the
+    same filter: only ``pass_fail == "pass"`` rows, only from the requested
+    split, and only from the requested policy family.
+    """
+
     candidates = [
         row
         for row in rows
@@ -265,6 +290,15 @@ def _deep_rl_comparison_lines(rows: list[dict[str, str]]) -> list[str]:
 
 
 def _threshold_cutoff(success_target: float) -> float:
+    """Apply the 5% tolerance rule to a benchmark success target.
+
+    Positive targets get ``0.95 * target`` (e.g. CartPole target 475 becomes
+    a 451.25 cutoff). Negative targets like MountainCar's ``-110`` get
+    ``target - 0.05 * |target|`` (i.e. ``-115.5``), which is "no more than 5%
+    worse than the target". This keeps the tolerance rule symmetric across
+    reward sign conventions.
+    """
+
     if success_target >= 0.0:
         return 0.95 * success_target
     return success_target - 0.05 * abs(success_target)

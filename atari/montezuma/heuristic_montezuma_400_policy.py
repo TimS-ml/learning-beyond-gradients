@@ -456,11 +456,26 @@ MACROS = [
 
 
 class Policy:
+    """Open-loop replay of a fixed action sequence.
+
+    The 86 `(action_id, duration, name)` tuples in `MACROS` are expanded once
+    at construction into a flat list of per-step action ids (about 1769
+    steps in total). `act()` ignores its `obs` and `info` arguments entirely
+    and just returns `self._actions[self._t]`, so this policy is a
+    deterministic function of the internal time index only.
+
+    After the scripted actions run out, `act()` returns `fallback_action`
+    (default NOOP) forever.
+    """
+
     def __init__(self, macros: Iterable[tuple[int, int, str]] = MACROS, fallback_action: int = 0) -> None:
         self._actions: list[int] = []
         for action, duration, _name in macros:
             if duration < 0:
                 raise ValueError(f"negative macro duration: {duration}")
+            # Expand each macro into `duration` copies of its action id so
+            # the per-step lookup is O(1). Total expanded length equals
+            # sum(durations) = 1769 for the 400-point route.
             self._actions.extend([int(action)] * int(duration))
         self._fallback_action = int(fallback_action)
         self._t = 0

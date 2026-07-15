@@ -364,10 +364,15 @@ class HeuristicPongAgent:
         opponent_paddle_y: float | None,
         home_y: float,
     ) -> float:
+        # Key insight: Atari Pong's paddle spins the ball based on which part
+        # of the paddle makes contact. Aiming for the top of our paddle sends
+        # the return down; aiming for the bottom sends it up. So if the
+        # opponent is above center, bias contact toward the top of our paddle
+        # (subtract offset) to make the return travel downward past them,
+        # and vice versa. This is what lifts scores from "reliable rally" to
+        # "reliable 21".
         if opponent_paddle_y is None:
             return intercept_y
-        # If the opponent sits above center, bias our hit to send the ball down,
-        # and vice versa.
         desired_outgoing_sign = 1.0 if opponent_paddle_y < home_y else -1.0
         return intercept_y - desired_outgoing_sign * self._config.spin_offset_px
 
@@ -614,7 +619,22 @@ def calibrate_action_map(
     vision: PongVision,
     config: HeuristicConfig,
 ) -> ActionMap:
-    """Probe the environment to discover no-op/up/down action ids."""
+    """Probe the environment to discover no-op/up/down action ids.
+
+    Instead of hardcoding action ids per ROM variant, run each discrete
+    action for a few frames from a fresh reset, measure the paddle's Y
+    displacement using the vision detector, and label:
+
+    - ``up`` = action with the most negative Y delta,
+    - ``down`` = action with the most positive Y delta,
+    - ``noop`` = action with the smallest absolute delta.
+
+    Falls back to ``fallback_*_action`` from the config if the vision
+    detector never latched on to the paddle (all deltas below 1 pixel). This
+    is one of the reusable "figure out what actions mean by trying them"
+    patterns the blog names as a heuristic building block.
+    """
+
     action_num = int(env.action_space.n)
     mean_deltas: list[float] = []
     for action in range(action_num):

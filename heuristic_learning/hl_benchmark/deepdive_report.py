@@ -87,6 +87,14 @@ def _counter_lines(counter: Counter[str]) -> list[str]:
 
 
 def _git_status_for_project() -> str:
+    """Return a one-line ``git status --short`` for the benchmark path.
+
+    Returns ``"clean"`` when the working tree is clean, ``"unavailable"``
+    when git is missing, and otherwise the joined status lines. This lets
+    the deep-dive report state whether the ledger was generated against a
+    clean tree without exposing the raw diff.
+    """
+
     try:
         output = subprocess.check_output(
             ["git", "status", "--short", "--", str(PROJECT_DIR)],
@@ -290,6 +298,19 @@ def _partial_trial_rows(entries: list[dict[str, Any]]) -> list[str]:
 
 
 def _cost_lines(entries: list[dict[str, Any]]) -> list[str]:
+    """Aggregate the cost-accounting section of the deep-dive report.
+
+    Highlights that would otherwise be invisible in a scores table:
+
+    - ``zero_step_runs`` catches instrumentation bugs where episodes ran but
+      the harness recorded zero environment steps.
+    - ``llm_unavailable`` counts rows with ``"unavailable"`` LLM token totals
+      so a reader can see the fraction of the ledger where token cost was
+      not measured versus where it was measured to be zero.
+    - The git commit / diff counters make it visible if the ledger spans
+      multiple commits or unclean working trees.
+    """
+
     status_counts = Counter(entry["pass_fail"] for entry in entries)
     split_counts = Counter(_entry_split(entry) for entry in entries)
     change_counts = Counter(entry["change_type"] for entry in entries)

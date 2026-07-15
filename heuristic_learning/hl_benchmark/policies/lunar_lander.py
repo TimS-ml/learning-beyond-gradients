@@ -12,6 +12,17 @@ from .base import BasePolicy, _clip
 
 @dataclass(frozen=True)
 class LunarLanderConfig:
+    """Gains for the PD-style LunarLander controller.
+
+    The ``angle_*`` / ``hover_*`` block is the classic Gymnasium heuristic:
+    convert horizontal error into a desired lean angle, compute torque-to-do
+    and thrust-to-do, then dispatch to one of the four discrete engine
+    actions using ``engine_deadband``. ``contact_descent_gain`` and
+    ``low_altitude_y`` are only used by the improved (structural) policy for
+    the leg-contact and low-altitude guards that reduce fuel-wasting
+    corrections at the end of descent.
+    """
+
     angle_x_gain: float = 0.50
     angle_vx_gain: float = 1.00
     angle_target_limit: float = 0.40
@@ -20,7 +31,10 @@ class LunarLanderConfig:
     angular_velocity_gain: float = 1.00
     hover_y_gain: float = 0.50
     vertical_velocity_gain: float = 0.50
+    # Engine dispatch deadband: absolute todo below this value is treated as
+    # "no thrust needed", so the fuel penalty is not spent on tiny wobbles.
     engine_deadband: float = 0.05
+    # Structural landing guards (used only when structural=True).
     contact_descent_gain: float = 0.65
     low_altitude_y: float = 0.20
 

@@ -14,6 +14,13 @@ from .mountain_car import MountainCarConfig, MountainCarPolicy
 
 
 def _config_from_dict(config_type: type[Any], values: dict[str, Any] | None) -> Any:
+    """Fold a partial dict into a frozen config dataclass.
+
+    Unknown keys are silently ignored (rather than raising) so a scalar
+    search config for one policy version can be safely passed to another,
+    and so a caller can pin only a subset of the fields.
+    """
+
     base = config_type()
     if not values:
         return base

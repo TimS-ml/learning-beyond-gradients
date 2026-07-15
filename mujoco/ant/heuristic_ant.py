@@ -45,13 +45,25 @@ DEFAULT_LOG_PATH = SCRIPT_DIR / "heuristic_ant_trials.jsonl"
 DEFAULT_SUMMARY_PATH = SCRIPT_DIR / "heuristic_ant_trials_summary.csv"
 DEFAULT_MUJOCO_XML_PATH = SCRIPT_DIR / "ant_envpool.xml"
 
+# Ant has 8 hinge joints in qpos order but the actuators are wired in a
+# different order. `ANT_Q_INDEX` remaps qpos-order joints into actuator order
+# so `q[ANT_Q_INDEX]` lines up with the 8-vector action.
 ANT_Q_INDEX = np.asarray([6, 7, 0, 1, 2, 3, 4, 5], dtype=np.int64)
+# CPG phase offset per leg (in actuator-pair order). The 0/pi/0/pi pattern
+# gives diagonal legs the same phase and opposite legs opposite phases, which
+# is the standard trotting gait.
 ANT_LEG_PHASE = np.asarray([0.0, math.pi, 0.0, math.pi], dtype=np.float64)
+# Signs used to flip left/right or front/back symmetric quantities into a
+# single actuator-pair vector: hip sign per leg, ankle sign per leg, and the
+# yaw/pitch/roll balance axes.
 ANT_HIP_SIGN = np.asarray([-1.0, 1.0, 1.0, -1.0], dtype=np.float64)
 ANT_ANKLE_SIGN = np.asarray([1.0, 1.0, -1.0, -1.0], dtype=np.float64)
 ANT_HEADING_AXIS = np.asarray([1.0, 1.0, -1.0, -1.0], dtype=np.float64)
 ANT_PITCH_AXIS = np.asarray([1.0, 1.0, -1.0, -1.0], dtype=np.float64)
 ANT_ROLL_AXIS = np.asarray([-1.0, 1.0, 1.0, -1.0], dtype=np.float64)
+# MuJoCo body ids of the four feet in the private rollout model; the obs
+# vector packs `cfrc_ext` starting at index 27 with the torso removed, so the
+# corresponding obs rows are shifted by 1.
 ANT_FOOT_BODY_IDS = np.asarray([13, 4, 7, 10], dtype=np.int64)
 ANT_FOOT_OBS_ROWS = ANT_FOOT_BODY_IDS - 1
 
@@ -397,8 +409,13 @@ class MpcResidualAntAgent:
             yaw_rate,
             foot_contacts,
         )
+        # Warm start: the previous step's best plan, shifted by one, is often
+        # already a good candidate. Score it first so it can only be replaced
+        # by a demonstrably better sample.
         best_residuals = self._residual_plan.copy()
         best_objective = self._rollout_objective(obs, best_residuals)
+        # Two search paths: cheap random shooting (default) or CEM. Random
+        # shooting is the setting that produced the 6146 blog result.
         if self._config.mpc_cem_iters <= 0:
             for _ in range(self._config.mpc_candidates - 1):
                 if self._config.mpc_num_knots <= 1:
@@ -480,14 +497,21 @@ class MpcResidualAntAgent:
                     0.02 * self._config.mpc_sigma,
                 )
 
+        # Advance the CPG phase for the next real env step.
         self._state.phase += compute_adaptive_ant_dphi(
             self._config,
             x_velocity,
         )
+        # Warm-start the next iteration: shift the winning plan one step
+        # earlier and decay it toward zero. New random samples in the next
+        # call will explore around this shifted-and-decayed plan instead of
+        # restarting from scratch.
         self._residual_plan[:-1] = (
             self._config.mpc_plan_decay * best_residuals[1:]
         )
         self._residual_plan[-1] = 0.0
+        # Only the first residual is actually applied to the real env; the
+        # rest are the plan we'll re-search around next step.
         return np.clip(base_action + best_residuals[0], -1.0, 1.0)
 
     def _set_mujoco_state_from_obs(self, obs: np.ndarray) -> None:
@@ -560,6 +584,12 @@ class MpcResidualAntAgent:
             roll, pitch, yaw = decode_mujoco_torso_euler(
                 self._rollout_data.qpos[3:7]
             )
+            # Objective mirrors Ant-v5's environment reward closely: forward
+            # velocity is the main term, plus a small "alive bonus" when the
+            # torso is at a reasonable height and a large penalty when it is
+            # about to fall or bounce. Control cost, pose (roll/pitch),
+            # heading (yaw), and torso height regularizers keep the MPC from
+            # driving to a good local burst at the cost of stability.
             objective += self._config.mpc_forward_weight * x_velocity + (
                 1.0 if 0.2 <= z_position <= 1.0 else -50.0
             )

@@ -12,10 +12,22 @@ from .base import BasePolicy
 
 @dataclass(frozen=True)
 class MountainCarConfig:
+    """Constants for the MountainCar heuristic policy.
+
+    The first four fields tune the pure sign controller (initial policy):
+    energy pumping by pushing in the direction of velocity, plus guards for
+    the left-wall stall and the goal-approach coast. The ``planner_*`` fields
+    define the discrete value-iteration planner used by the improved policy
+    (``structural=True``).
+    """
+
     goal_commit_position: float = -0.20
     goal_commit_velocity: float = 0.000
     left_wall_position: float = -1.05
     coast_velocity_window: float = 0.000
+    # Improved policy: discrete planner grid over (position, velocity) with
+    # a horizon of ``planner_horizon`` env steps. The table is precomputed
+    # once per ``(grid_size, horizon)`` pair and cached on the class.
     planner_grid_size: int = 301
     planner_horizon: int = 200
 

@@ -1,3 +1,19 @@
+"""Solve VizDoom D1 Basic with a pure CV medikit-tracking policy.
+
+The scenario gives +1 for picking up the medikit and a small -0.0001 per-step
+penalty for not picking it up. The policy uses only:
+
+- The rendered screen (via `env.render()`).
+- The public game variable `HEALTH`.
+
+It does not read the WAD map, object coordinates, labels, a locally compiled
+EnvPool extension, or seed-specific routes.
+
+The winning trick (see `policy_action`) is to *stage* next to the medikit
+when health is still high, letting the per-step penalty drop health to
+`PICKUP_HEALTH` before finally walking onto the medikit for maximum reward.
+"""
+
 import argparse
 import os
 from collections.abc import Sequence
@@ -8,6 +24,8 @@ import imageio.v2 as imageio
 import numpy as np
 
 
+# EnvPool combined-action ids for D1 Basic. Combined actions include diagonal
+# forward-and-turn movements which the pure movement primitives lack.
 ACT_NONE = 0
 ACT_TURN_RIGHT = 1
 ACT_TURN_LEFT = 2
@@ -15,6 +33,10 @@ ACT_FORWARD = 3
 ACT_FORWARD_RIGHT = 4
 ACT_FORWARD_LEFT = 5
 
+# Staging thresholds. `PICKUP_HEALTH` is the health value below which the
+# medikit pickup reward matters more than avoiding damage; the policy waits
+# for health to drop this low before actually walking onto the medikit.
+# `STAGE_AREA` is the medikit pixel area at which "close" starts.
 PICKUP_HEALTH = 68.0
 STAGE_AREA = 180.0
 
@@ -50,9 +72,28 @@ def detect_medikit(frame: np.ndarray) -> tuple[float, float, float, float, float
 
 
 def policy_action(step: int, frame: np.ndarray, health: float, state: dict[str, float]) -> int:
+    """Decide one action from the current frame, health, and per-env state.
+
+    Branches, in order:
+
+    1. Medikit not visible: for the first 40 steps after last sighting, keep
+       spinning toward where the medikit was last seen (`lost_spin`), then
+       fall through to a slow alternating scan seeded by the env id.
+    2. Medikit visible and close, but health still high: this is the staging
+       branch. Center on the medikit but do NOT walk onto it; wait for the
+       per-step penalty to drop health below `PICKUP_HEALTH`.
+    3. Medikit visible: walk toward it with a forward-and-turn combined
+       action when the horizontal offset is outside the deadband, else pure
+       forward.
+    """
+
     height, width = frame.shape[:2]
     detected = detect_medikit(frame)
     if detected is None:
+        # Lost-medikit search: alternate turn direction based on where the
+        # medikit was last seen so we sweep the same arc instead of spinning
+        # in place. `state["id"]` seeds the fallback direction per env so
+        # concurrent envs don't all rotate the same way.
         if step - state.get("last_seen", -999.0) < 40:
             return ACT_TURN_LEFT if state.get("lost_spin", -1.0) < 0 else ACT_TURN_RIGHT
         return ACT_TURN_LEFT if (step // 35 + state["id"]) % 2 == 0 else ACT_TURN_RIGHT
@@ -60,6 +101,8 @@ def policy_action(step: int, frame: np.ndarray, health: float, state: dict[str, 
     _, area, cx, cy, w, h = detected
     offset = cx - width / 2
     state["last_seen"] = float(step)
+    # Remember which side the medikit was on so the next lost-medikit branch
+    # can continue rotating in the right direction.
     state["lost_spin"] = -1.0 if cx < width / 2 else 1.0
     close = (
         area > STAGE_AREA
@@ -68,6 +111,10 @@ def policy_action(step: int, frame: np.ndarray, health: float, state: dict[str, 
         or w > width * 0.20
     )
 
+    # Staging (key trick): centre on the medikit but do not step onto it
+    # while health is still above `PICKUP_HEALTH`. The environment's per-step
+    # health drain will bring us into range, and picking up the medikit at
+    # low health gives more reward than at full health.
     if close and health > PICKUP_HEALTH:
         if offset < -16:
             return ACT_TURN_LEFT
@@ -75,6 +122,8 @@ def policy_action(step: int, frame: np.ndarray, health: float, state: dict[str, 
             return ACT_TURN_RIGHT
         return ACT_NONE
 
+    # Approach with a wider deadband when close (we already have a small
+    # heading error tolerance from staging) and a tighter one when far away.
     margin = 18 if close else 12
     if offset < -margin:
         return ACT_FORWARD_LEFT

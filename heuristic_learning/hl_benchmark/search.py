@@ -17,14 +17,25 @@ RESULTS_DIR = Path(__file__).resolve().parents[1] / "results"
 
 
 def ensure_search_split_allowed(split: str) -> None:
-    """Reject holdout-seed optimization."""
+    """Reject holdout-seed optimization.
+
+    This is the enforcement point of the benchmark's audit rule: scalar or
+    config tuning must only see the development seeds. Holdout and audit
+    seeds are reserved for frozen comparisons and any downstream report that
+    aggregates them assumes they were never optimized against.
+    """
 
     if split in {"holdout", "audit"}:
         raise ValueError("scalar/config search may not use holdout or audit seeds")
 
 
 def candidate_configs(env_id: str, *, max_candidates: int = 32) -> list[dict[str, Any]]:
-    """Return bounded scalar-only candidate configs for an environment."""
+    """Return bounded scalar-only candidate configs for an environment.
+
+    Each per-env branch enumerates a small ``itertools.product`` over a handful
+    of scalar knobs. The list is truncated to ``max_candidates`` so scalar
+    search cannot silently become a large training loop.
+    """
 
     candidates: list[dict[str, Any]] = []
     if env_id == "CartPole-v1":

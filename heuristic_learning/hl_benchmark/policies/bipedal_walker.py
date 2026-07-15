@@ -13,6 +13,20 @@ from .base import BasePolicy, _clip
 
 @dataclass(frozen=True)
 class BipedalWalkerConfig:
+    """Constants for both BipedalWalker policies.
+
+    The first block (``gait_period`` through ``recovery_knee``) is the
+    initial Fourier open-loop gait: it drives a hip sine wave plus hull-
+    angle stabilization, with a swing-vs-stance knee dispatch.
+
+    Everything prefixed with ``walker_`` is the improved state-machine gait
+    (used when ``structural=True``). It implements the transparent
+    ``STAY_ON_ONE_LEG -> PUT_OTHER_DOWN -> PUSH_OFF`` cycle adapted from
+    Gymnasium's transparent heuristic, plus per-joint PD gains and hull
+    stabilization.
+    """
+
+    # ---- Initial Fourier gait ----
     gait_period: int = 48
     hip_amplitude: float = 0.65
     knee_drive: float = 0.80
@@ -21,6 +35,7 @@ class BipedalWalkerConfig:
     hull_velocity_gain: float = 0.18
     recovery_angle: float = 0.45
     recovery_knee: float = 0.90
+    # ---- Improved state-machine gait ----
     walker_speed: float = 0.275
     walker_action_scale: float = 0.53
     walker_hip_gain: float = 0.90
@@ -36,14 +51,29 @@ class BipedalWalkerConfig:
     walker_moving_knee_target: float = -0.60
     walker_put_down_hip_target: float = 0.10
     walker_push_off_knee_target: float = 1.00
+    # State transitions: leave STAY_ON_ONE_LEG when the supporting hip has
+    # rotated behind by this threshold, leave PUSH_OFF when either the
+    # supporting knee is near full extension or overall speed exceeds the
+    # ``walker_speed * walker_overspeed_switch`` cap.
     walker_support_behind_threshold: float = 0.10
     walker_push_off_knee_switch: float = 0.88
     walker_overspeed_switch: float = 1.20
 
 
 class BipedalWalkerPolicy(BasePolicy):
-    """Transparent gait controllers for BipedalWalker."""
+    """Transparent gait controllers for BipedalWalker.
 
+    ``structural=False`` runs a Fourier open-loop hip/knee gait with hull
+    stabilization. ``structural=True`` runs a three-mode gait state machine
+    that cycles ``STAY_ON_ONE_LEG -> PUT_OTHER_DOWN -> PUSH_OFF`` per stride
+    and swaps the moving/supporting leg on the ``PUSH_OFF -> STAY_ON_ONE_LEG``
+    transition.
+    """
+
+    # Gait mode identifiers. ``STAY_ON_ONE_LEG`` = lift and swing the moving
+    # leg while the supporting leg carries weight; ``PUT_OTHER_DOWN`` = place
+    # the moving foot on the ground; ``PUSH_OFF`` = extend the supporting
+    # knee to shift weight to the newly planted foot before swapping legs.
     STAY_ON_ONE_LEG = 1
     PUT_OTHER_DOWN = 2
     PUSH_OFF = 3

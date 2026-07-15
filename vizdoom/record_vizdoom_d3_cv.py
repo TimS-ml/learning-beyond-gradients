@@ -1,3 +1,14 @@
+"""Render a 35fps 5x2 grid MP4 of 10 D3 Battle seeds using the CV policy.
+
+Runs the same `choose()` policy from `heuristic_vizdoom_d3_cv.py` on 10
+parallel envs and writes the render frames (with per-tile reward / kills /
+health / ammo overlays) to `vizdoom/d3_cv_best_10seed_render_35fps.mp4`.
+The reward mode matches the eval config: `1 * DAMAGECOUNT + 10 * KILLCOUNT`.
+
+The D3 module is imported dynamically via `importlib` so the `vizdoom/`
+folder does not need to be a Python package.
+"""
+
 import importlib.util
 from pathlib import Path
 
@@ -6,6 +17,9 @@ import imageio.v2 as imageio
 import numpy as np
 
 
+# Load `heuristic_vizdoom_d3_cv.py` as an on-disk module without needing an
+# `__init__.py` next to it. Everything (`BASE_P`, `choose`, `State`,
+# `cfgfile`, `make_gym`, `os`) is then reachable via `d3cv.*`.
 SPEC = importlib.util.spec_from_file_location(
     "d3cv", Path(__file__).with_name("heuristic_vizdoom_d3_cv.py")
 )

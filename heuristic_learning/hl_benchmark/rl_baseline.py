@@ -20,6 +20,8 @@ from .ledger import (
 
 
 def _score_stats(scores: list[float]) -> dict[str, float | None]:
+    """Return the ledger's ``score_stats`` shape; empty list gets all ``None``."""
+
     if not scores:
         return {"mean": None, "std": None, "median": None, "min": None, "max": None}
     values = np.asarray(scores, dtype=float)
@@ -33,6 +35,13 @@ def _score_stats(scores: list[float]) -> dict[str, float | None]:
 
 
 def _load_sb3_class(class_name: str) -> Any:
+    """Lazily import a Stable-Baselines3 algorithm class.
+
+    Keeps the ``rl_baseline`` module importable without the optional ``.[rl]``
+    extras installed. The failure message tells the reader exactly which
+    ``pip install`` command to run instead of surfacing a bare ImportError.
+    """
+
     try:
         import stable_baselines3
     except Exception as exc:  # pragma: no cover - depends on optional dependency
@@ -385,12 +394,16 @@ def train_evaluate_baseline(
     )
     entry = make_trial_entry(
         environment=env_id,
+        # Suffix pretrained rows with ``-hf`` so reports can split "trained
+        # locally" from "downloaded pretrained comparator".
         policy_version=f"rl-{algorithm}-hf" if pretrained_repo_id is not None else f"rl-{algorithm}",
         config=config,
         seed_split=split,
         seeds=seeds,
         episodes=len(scores) if pass_fail == "pass" else len(seeds),
         score_stats=_score_stats(scores),
+        # Sum eval steps and training steps so the cost column is comparable
+        # with the transparent-policy rows (which only spend eval steps).
         environment_steps=environment_steps + train_steps,
         wall_clock_seconds=wall_clock_seconds,
         tests_run=tests_run or [],

@@ -9,6 +9,10 @@ from dataclasses import dataclass
 from typing import Any
 
 
+# Fixed seed protocol shared by evaluate.py, search.py, and rl_baseline.py.
+# The three ranges are disjoint on purpose: `search.py` refuses holdout and
+# audit splits so scalar tuning cannot leak into reserved comparison seeds.
+# `smoke` is only used by the pytest suite for a two-episode sanity check.
 SEED_SPLITS: dict[str, range] = {
     "dev": range(0, 20),
     "holdout": range(1000, 1050),

@@ -91,8 +91,24 @@ class BreakoutPolicyState:
 
 @dataclass(frozen=True)
 class HeuristicConfig:
-    """Geometry and control constants for the RAM policy."""
+    """Geometry and control constants for the RAM policy.
 
+    The defaults reproduce the ``864``-point run from the blog appendix. The
+    field is grouped by the score milestone the knob unlocked:
+
+    - Baseline geometry (``field_*``, ``paddle_*``, ``home_x``,
+      ``chase_lead_steps``, ``launch_offset_px``, ``max_velocity_jump_px``,
+      ``max_missing_ball_frames``) is enough for the ``387`` baseline.
+    - ``stuck_trigger_steps`` + ``stuck_switch_steps`` + ``stuck_offset_px``
+      form the ``387 -> 507`` "break the loop" mechanism.
+    - ``fast_ball_min_vy`` + ``fast_low_ball_lead_steps`` produce the
+      ``507 -> 839`` fast-low-ball handling.
+    - ``stuck_release_horizon_steps`` + ``brick_balance_*`` +
+      ``late_game_paddle_lag_px`` + ``late_game_lag_ball_y`` produce the
+      ``839 -> 864`` late-game careful play.
+    """
+
+    # ---- Field geometry ----
     field_left: float = 8.0
     field_right: float = 151.0
     paddle_min_x: float = 15.5
@@ -100,18 +116,35 @@ class HeuristicConfig:
     paddle_y: float = 189.5
     home_x: float = 106.5
     paddle_deadband_px: float = 3.0
+    # ---- Baseline chase / launch ----
     chase_lead_steps: float = 6.0
     tunnel_offset_px: float = 0.0
     launch_offset_px: float = 24.0
+    # ---- 507 -> 839: fast low ball ----
+    # When the ball is descending faster than ``fast_ball_min_vy`` and is
+    # already at or below the paddle Y, the full reflection prediction over-
+    # shoots. Fall back to a short constant lead instead.
     fast_low_ball_lead_steps: float = 3.0
     fast_ball_min_vy: float = 3.0
     max_velocity_jump_px: float = 24.0
+    # ---- 387 -> 507: stuck-loop breaker ----
+    # After ``stuck_trigger_steps`` without reward, cycle a +/- offset on the
+    # intercept x to nudge the ball out of a "returns forever, never breaks a
+    # brick" loop.
     stuck_trigger_steps: int = 1024
     stuck_switch_steps: int = 256
     stuck_offset_px: float = 12.0
+    # ---- 839 -> 864: late-game care (only once score >= brick_balance_bias_min_score) ----
+    # Taper the stuck offset as the ball approaches so the paddle is centered
+    # for the actual hit; the offset only helps while the ball is still far.
     stuck_release_horizon_steps: float = 8.0
+    # Bias the offset toward the heavier brick side once we're through the
+    # first wall, so the last few bricks get finished.
     brick_balance_deadzone: float = 0.01
     brick_balance_bias_min_score: float = 432.0
+    # Compensate for the one-step action delay: report a paddle x lagged in
+    # the last-commanded direction so target error accounts for the pixel
+    # the paddle is *about to be* at, not where it is now.
     late_game_paddle_lag_px: float = 2.0
     late_game_lag_ball_y: float = 170.0
     max_missing_ball_frames: int = 8
@@ -329,6 +362,10 @@ class VisionBreakoutAgent:
             )
 
         vx, vy = velocity
+        # Primary case: ball is descending above the paddle line.
+        # Reflect the projected trajectory off the two side walls and target
+        # the resulting intercept, plus optional tunnel offset and stuck-loop
+        # breaker. This is the geometric backbone of the 387-baseline policy.
         if vy > 0.1 and ball_y <= self._config.paddle_y:
             steps_to_paddle = max(
                 (self._config.paddle_y - ball_y) / vy,
@@ -347,11 +384,15 @@ class VisionBreakoutAgent:
                     detections.brick_balance,
                 )
             )
+        # 507 -> 839 mechanism: for high-vy balls that are already below the
+        # paddle line, the full reflection prediction over-shoots. Use a
+        # short constant lead in vx instead.
         elif vy >= self._config.fast_ball_min_vy:
             target_x = (
                 ball_x + self._config.fast_low_ball_lead_steps * vx
             )
         else:
+            # Ball is ascending or slow: chase with a small lead.
             target_x = ball_x + self._config.chase_lead_steps * vx
 
         return clip(
@@ -398,6 +439,13 @@ class VisionBreakoutAgent:
         steps_to_paddle: float,
         brick_balance: float,
     ) -> float:
+        # Score ladder for this method:
+        #   387 -> 507: cycle direction through phases 0..3 (the blog's
+        #               "break the periodic loop" trick).
+        #   839 -> 864: bias direction toward the heavier brick side once we
+        #               are past the first wall.
+        #   839 -> 864: taper (release) the offset as the ball approaches so
+        #               the actual interception is centered.
         if (
             self._state.steps_since_reward
             < self._config.stuck_trigger_steps
@@ -405,6 +453,8 @@ class VisionBreakoutAgent:
         ):
             return 0.0
 
+        # Four-phase cycle: +full, -full, +half, -half. This is the pattern
+        # that lifted the score from 387 to 507.
         phase = self._state.stuck_offset_index % 4
         if phase == 0:
             direction = 1.0
@@ -419,6 +469,9 @@ class VisionBreakoutAgent:
             direction = -1.0
             magnitude = 0.5 * self._config.stuck_offset_px
 
+        # Late-game brick-balance bias (839 -> 864 mechanism): once we are
+        # through the first wall, aim the ball toward the heavier remaining
+        # brick side instead of alternating blindly.
         if self._state.episode_score >= self._config.brick_balance_bias_min_score:
             if brick_balance > self._config.brick_balance_deadzone:
                 direction = 1.0
@@ -433,6 +486,9 @@ class VisionBreakoutAgent:
             or self._config.stuck_release_horizon_steps <= 0.0
         ):
             return offset
+        # Late-game release ratio: linearly scale the offset from full at
+        # ``stuck_release_horizon_steps`` down to zero at ``steps_to_paddle == 0``,
+        # so the paddle is centered by the time the ball arrives.
         release_ratio = clip(
             steps_to_paddle / self._config.stuck_release_horizon_steps,
             lower=0.0,

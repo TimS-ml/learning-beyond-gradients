@@ -233,14 +233,28 @@ ASYM_PD_CPG_RAW = np.array(
     dtype=np.float64,
 )
 
+# MPC starts from the searched ASYM_PD_CPG_RAW gait but with slightly slower
+# stance/swing frequencies, because the online model rollouts add their own
+# variation on top; a base that is already at cruise speed leaves less room
+# for the MPC to correct.
 MPC_ASYM_PD_CPG_RAW = ASYM_PD_CPG_RAW.copy()
 MPC_ASYM_PD_CPG_RAW[:2] -= 0.35
+# For the staged variants, drop the base frequencies much further and let
+# the staged amplitude schedule bring the gait up to cruise speed.
 MPC_CRUISE_ASYM_PD_CPG_RAW = ASYM_PD_CPG_RAW.copy()
 MPC_CRUISE_ASYM_PD_CPG_RAW[0] -= 1.80
 MPC_CRUISE_ASYM_PD_CPG_RAW[1] -= 1.10
 
 
 def scaled_mpc_cruise_raw(amplitude_scale: float, front_lower_leg_bias: float) -> np.ndarray:
+    """Build one stage of the staged-tree MPC gait from the cruise base.
+
+    ``amplitude_scale`` multiplies the harmonic Fourier coefficients (the sin/
+    cos terms) but keeps the bias term unchanged. ``front_lower_leg_bias``
+    adds a constant offset to the front lower-leg joints; the two matching
+    coefficient positions are the bias entries of joints 4 and 5.
+    """
+
     raw = MPC_CRUISE_ASYM_PD_CPG_RAW.copy()
     coeff = raw[2:].reshape(5, 6).copy()
     coeff[1:, :] *= amplitude_scale
@@ -250,6 +264,12 @@ def scaled_mpc_cruise_raw(amplitude_scale: float, front_lower_leg_bias: float) -
     return raw
 
 
+# Staged schedule for `mpc-staged-tree-asym-pd-cpg`: start small to establish
+# a stable gait, ramp up to a larger amplitude and front-leg bias for cruise,
+# then return to the start-swing parameters for the last frames so the ending
+# is conservative. Switch steps are `MPC_FAST_SWING_SWITCH_STEP` and
+# `MPC_FINAL_SWING_SWITCH_STEP`. This staging is what lifts the eval mean
+# from ~5000 (single-coefficient MPC) to ~11836.
 MPC_START_SWING_RAW = scaled_mpc_cruise_raw(amplitude_scale=1.15, front_lower_leg_bias=0.15)
 MPC_FAST_SWING_RAW = scaled_mpc_cruise_raw(amplitude_scale=1.18, front_lower_leg_bias=0.20)
 MPC_FINAL_SWING_RAW = MPC_START_SWING_RAW.copy()
@@ -570,6 +590,24 @@ def mpc_candidate_actions(
     *,
     include_random: bool,
 ) -> np.ndarray:
+    """Build a diverse candidate-action set around ``base_action`` for MPC.
+
+    Layers, in order:
+
+    - The base action itself (from the asym-PD CPG).
+    - ``+/-`` axis-aligned perturbations on each of 6 actuators using
+      ``MPC_COORDINATE_DELTAS`` (60 candidates total). These probe simple
+      one-joint corrections around the base.
+    - Optional Gaussian random blocks with three different noise scales
+      (``MPC_RANDOM_BLOCKS``: 64 small, 128 medium, 192 large). Provides
+      broad exploration in the first tree layer.
+    - ``MPC_BANG_BANG_ACTIONS``: the 64-vector product of ``{-1, +1}^6``.
+      Ensures the search always considers full-effort actions.
+
+    Second-layer tree expansions call this with ``include_random=False`` to
+    keep the branching factor bounded.
+    """
+
     candidate_actions = [base_action]
     for joint_index in range(6):
         for delta in MPC_COORDINATE_DELTAS:
@@ -884,6 +922,10 @@ def search(args: argparse.Namespace) -> np.ndarray:
             best_mean = mean_return[best_batch_index : best_batch_index + 1]
             best_returns = returns[best_batch_index : best_batch_index + 1]
 
+        # Standard CEM update from top-K elites, blended with the previous
+        # (mean, std) via `cem_alpha` for stability. `std_bonus` adds a small
+        # amount of exploration noise, and `min_std` prevents the search from
+        # collapsing to a single point before it has converged.
         elites = raw[order[: args.elites]]
         new_mean = np.mean(elites, axis=0)
         new_std = np.std(elites, axis=0) + args.std_bonus

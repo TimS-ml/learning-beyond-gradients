@@ -15,12 +15,27 @@ from .base import BasePolicy
 
 @dataclass(frozen=True)
 class AcrobotConfig:
+    """Constants for the Acrobot swing-up rule.
+
+    The first three fields form the initial swing-up controller (a sum of the
+    two joint angular velocities plus a phase term). The ``upright_*`` fields
+    activate an alternate stabilizing rule once the tip is above the switch
+    height, and the ``recovery_*`` fields drive a periodic kick when the tip
+    has stayed low for too long.
+    """
+
     velocity_gain_1: float = 0.75
     velocity_gain_2: float = 1.00
     phase_gain: float = 0.50
+    # Upright region: once tip_height exceeds the switch, use a phase +
+    # combined-velocity controller with a small deadband so the arm can
+    # actually stay upright instead of overshooting.
     upright_height_switch: float = 1.25
     upright_phase_gain: float = 1.10
     upright_velocity_gain: float = 0.25
+    # Recovery kick: if we are still low after ``recovery_step`` steps, add a
+    # sinusoidal torque with period ``recovery_period`` to break out of a
+    # dead swing region.
     recovery_step: int = 140
     recovery_height_threshold: float = 0.20
     recovery_kick_gain: float = 0.90
@@ -84,7 +99,16 @@ class AcrobotPolicy(BasePolicy):
 
 
 class AcrobotDecisionTreePolicy(BasePolicy):
-    """Explicit decision tree distilled from the recorded PPO Acrobot comparator."""
+    """Explicit decision tree distilled from the recorded PPO Acrobot comparator.
+
+    The tree structure (children arrays, feature indices, thresholds, class
+    counts per leaf) is loaded from
+    ``heuristic_learning/results/acrobot_tree_policy.json``. That JSON was
+    produced offline by fitting an sklearn ``DecisionTreeClassifier`` on the
+    (obs, action) pairs of a recorded PPO teacher, then serializing the
+    fitted tree. Reports keep this policy separate from the hand-written
+    heuristics because the structural shape came from a neural teacher.
+    """
 
     policy_name = "tree"
 

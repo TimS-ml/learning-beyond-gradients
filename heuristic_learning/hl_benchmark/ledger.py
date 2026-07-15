@@ -50,6 +50,13 @@ def utc_now_iso() -> str:
 
 
 def _run_git(args: list[str]) -> str:
+    """Run one git command and swallow every failure into ``"unavailable"``.
+
+    Never raise: an environment without git installed or without a repo
+    context must still produce valid ledger rows, just with git fields marked
+    as unavailable.
+    """
+
     try:
         return subprocess.check_output(["git", *args], text=True, stderr=subprocess.DEVNULL).strip()
     except Exception:
@@ -102,7 +109,12 @@ def validate_entry(entry: dict[str, Any]) -> None:
 
 
 def append_entry(path: Path, entry: dict[str, Any]) -> None:
-    """Append one JSONL entry and never mutate older entries."""
+    """Append one JSONL entry and never mutate older entries.
+
+    Opens the file in append mode only; this is the sole place in the package
+    that writes to ``trials.jsonl``. Every entry passes ``validate_entry``
+    first so a schema violation raises before touching disk.
+    """
 
     validate_entry(entry)
     path.parent.mkdir(parents=True, exist_ok=True)

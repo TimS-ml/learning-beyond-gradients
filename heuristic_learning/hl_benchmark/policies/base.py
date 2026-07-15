@@ -6,6 +6,13 @@ from typing import Any
 
 
 def _clip(value: float, low: float = -1.0, high: float = 1.0) -> float:
+    """Clamp ``value`` to ``[low, high]`` and coerce to ``float``.
+
+    Small helper reused by every continuous-action policy to keep actions
+    inside the Gymnasium ``Box(-1, 1)`` range without importing NumPy just
+    for a scalar clip.
+    """
+
     return float(min(high, max(low, value)))
 
 

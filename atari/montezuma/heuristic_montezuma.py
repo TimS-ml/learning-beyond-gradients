@@ -92,7 +92,25 @@ class MontezumaRamState:
 
 @dataclass(frozen=True)
 class LeftJumpConfig:
-    """Configurable constants for the first-room left-jump heuristic."""
+    """Configurable constants for the first-room left-jump heuristic.
+
+    The FSM cycle is:
+
+    1. `WAIT_SKULL`: NOOP until `skull_x <= skull_wait_x` OR
+       `wait_timeout_steps` frames elapse. This lets the skull walk past the
+       spot the descending player will land on.
+    2. `DESCEND_CENTER`: hold DOWN until `player_y >= descend_until_y` AND
+       `player_x <= descend_until_x` AND `motion_state == 4` (standing on
+       the lower middle platform, not still climbing).
+    3. `JUMP_LEFT`: hold `jump_action` (default LEFTFIRE = left + jump) for
+       `jump_steps` frames.
+    4. `TAIL_MACRO`: hold `tail_action` for `tail_steps` frames as a
+       follow-through (grid-searched separately).
+    5. `IDLE`: hold `idle_action` forever.
+
+    Life loss immediately jumps to IDLE (see `_handle_life_change`) so the
+    agent does not blindly execute a macro after dying.
+    """
 
     skull_wait_x: int = 52
     wait_timeout_steps: int = 256
@@ -187,7 +205,20 @@ def decode_ram_state(
     info: dict[str, np.ndarray],
     env_index: int,
 ) -> MontezumaRamState:
-    """Decode player/skull coordinates from one env slot's RAM."""
+    """Decode player/skull coordinates from one env slot's RAM.
+
+    Byte-offset map (empirically established, see docstring in the search
+    scripts under `atari/montezuma/` for the full byte survey):
+
+    - `ram[42]` = player x pixel.
+    - `ram[43]` = raw player y; the on-screen y is `(312 - raw) & 255`.
+    - `ram[2]`  = motion state; 4 means "standing on ground".
+    - `ram[47]` = skull x pixel.
+    - `ram[3]`  = room id.
+
+    ``lives`` is only present when EnvPool exposes it on the info dict.
+    """
+
     ram = np.asarray(info["ram"])[env_index]
     lives = None
     if "lives" in info:
